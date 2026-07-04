@@ -1,0 +1,1738 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>RyzenSense — AMD AI Hardware Tuner</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Inter:wght@300;400;500;600&display=swap');
+
+:root {
+  --amd-red: #ED1C24;
+  --amd-red2: #FF3B3F;
+  --amd-dark: #B01219;
+  --void: #04070D;
+  --deep: #070C14;
+  --glass-bg: rgba(12, 20, 35, 0.55);
+  --glass-bg2: rgba(8, 14, 26, 0.70);
+  --glass-border: rgba(237, 28, 36, 0.18);
+  --glass-border2: rgba(255, 255, 255, 0.08);
+  --glass-shine: rgba(255, 255, 255, 0.06);
+  --glow-red: rgba(237, 28, 36, 0.45);
+  --glow-red2: rgba(237, 28, 36, 0.15);
+  --t1: #F2F6FF;
+  --t2: #8BA0C0;
+  --t3: #2E4060;
+  --green: #00FFA3;
+  --blue: #00BFFF;
+  --yellow: #FFD000;
+  --orange: #FF7A00;
+  --purple: #BF5FFF;
+  --blur: blur(24px) saturate(180%);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { font-family: 'Inter', sans-serif; background: var(--void); color: var(--t1); overflow-x: hidden; }
+
+/* ── CANVAS ── */
+#bg-canvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+
+/* ── SCANLINES ── */
+.scanlines {
+  position: fixed; inset: 0; z-index: 1; pointer-events: none;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px);
+}
+
+.page { position: relative; z-index: 2; }
+
+/* ── GLASS MIXIN ── */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  position: relative;
+  overflow: hidden;
+}
+.glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, var(--glass-shine) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.glass2 {
+  background: var(--glass-bg2);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--glass-border2);
+  border-radius: 12px;
+  position: relative;
+  overflow: hidden;
+}
+.glass2::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+}
+
+/* ── NAV ── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  height: 64px; padding: 0 2rem;
+  display: flex; align-items: center; gap: 1.5rem;
+  background: rgba(4, 7, 13, 0.7);
+  backdrop-filter: blur(32px) saturate(200%);
+  -webkit-backdrop-filter: blur(32px) saturate(200%);
+  border-bottom: 1px solid rgba(237, 28, 36, 0.15);
+}
+.nav-logo {
+  display: flex; align-items: center; gap: 12px;
+  font-family: 'Orbitron', monospace; font-size: 1rem; font-weight: 900;
+  color: var(--t1); text-decoration: none;
+}
+.nav-logo-gem {
+  width: 36px; height: 36px;
+  background: linear-gradient(135deg, #FF3B3F, #B01219);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.6rem; font-weight: 900; color: #fff;
+  box-shadow: 0 0 20px var(--glow-red), inset 0 1px 0 rgba(255,255,255,0.25);
+  position: relative; overflow: hidden;
+}
+.nav-logo-gem::after {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 50%;
+  background: linear-gradient(180deg, rgba(255,255,255,0.2), transparent);
+  border-radius: 8px 8px 0 0;
+}
+.nav-badge {
+  font-size: 0.62rem; padding: 2px 8px;
+  background: rgba(237,28,36,0.15); border: 1px solid rgba(237,28,36,0.3);
+  border-radius: 100px; color: var(--amd-red2);
+  font-family: 'Orbitron', monospace;
+}
+.nav-links { display: flex; gap: 0; margin-left: auto; }
+.nav-links a {
+  font-size: 0.72rem; font-weight: 600; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--t2); text-decoration: none;
+  padding: 0 1rem; height: 64px; display: flex; align-items: center;
+  transition: color 0.2s; border-right: 1px solid rgba(255,255,255,0.04);
+}
+.nav-links a:hover { color: var(--amd-red2); }
+.nav-cta {
+  padding: 0.5rem 1.4rem;
+  background: linear-gradient(135deg, var(--amd-red2), var(--amd-dark));
+  color: #fff; border: none; border-radius: 8px;
+  font-size: 0.78rem; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; cursor: pointer; text-decoration: none;
+  box-shadow: 0 4px 20px var(--glow-red), inset 0 1px 0 rgba(255,255,255,0.2);
+  transition: box-shadow 0.2s, transform 0.15s;
+  position: relative; overflow: hidden;
+}
+.nav-cta::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.15) 0%, transparent 50%);
+  border-radius: 8px;
+}
+.nav-cta:hover { box-shadow: 0 4px 32px var(--glow-red), 0 0 60px var(--glow-red2), inset 0 1px 0 rgba(255,255,255,0.25); transform: translateY(-1px); }
+
+/* ── HERO ── */
+.hero {
+  min-height: 100vh; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 80px 2rem 4rem; text-align: center; position: relative; overflow: hidden;
+}
+.hero-orb {
+  position: absolute; top: 10%; left: 50%; transform: translateX(-50%);
+  width: 700px; height: 500px;
+  background: radial-gradient(ellipse, rgba(237,28,36,0.12) 0%, transparent 65%);
+  pointer-events: none; animation: orb-pulse 4s ease-in-out infinite;
+}
+@keyframes orb-pulse { 0%,100%{opacity:.6;transform:translateX(-50%) scale(1)} 50%{opacity:1;transform:translateX(-50%) scale(1.08)} }
+
+.hero-ring {
+  position: absolute; border-radius: 50%;
+  border: 1px solid rgba(237,28,36,0.08);
+  animation: ring-spin linear infinite;
+  pointer-events: none;
+}
+.hero-ring:nth-child(1) { width:500px;height:500px;top:50%;left:50%;transform:translate(-50%,-50%);animation-duration:25s; }
+.hero-ring:nth-child(2) { width:750px;height:750px;top:50%;left:50%;transform:translate(-50%,-50%);animation-duration:40s;animation-direction:reverse; border-color:rgba(237,28,36,0.05); }
+.hero-ring:nth-child(3) { width:1000px;height:1000px;top:50%;left:50%;transform:translate(-50%,-50%);animation-duration:60s; border-color:rgba(237,28,36,0.03); }
+@keyframes ring-spin { from{transform:translate(-50%,-50%) rotate(0deg)} to{transform:translate(-50%,-50%) rotate(360deg)} }
+
+/* AMD badge */
+.amd-badge {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 6px 18px 6px 6px;
+  background: rgba(237,28,36,0.06);
+  border: 1px solid rgba(237,28,36,0.25);
+  border-radius: 100px; margin-bottom: 2.5rem;
+  backdrop-filter: blur(12px);
+  animation: fade-up 0.6s ease both;
+  box-shadow: 0 0 30px rgba(237,28,36,0.08), inset 0 1px 0 rgba(255,255,255,0.05);
+}
+.amd-orb {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: linear-gradient(135deg, #FF3B3F, #B01219);
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Orbitron', monospace; font-size: 0.5rem; font-weight: 900; color: #fff;
+  box-shadow: 0 0 16px var(--glow-red), inset 0 1px 0 rgba(255,255,255,0.3);
+  animation: gem-pulse 2s ease-in-out infinite;
+}
+@keyframes gem-pulse {
+  0%,100%{box-shadow:0 0 16px var(--glow-red),inset 0 1px 0 rgba(255,255,255,0.3)}
+  50%{box-shadow:0 0 32px var(--glow-red),0 0 60px rgba(237,28,36,0.2),inset 0 1px 0 rgba(255,255,255,0.3)}
+}
+.amd-badge-text { font-size:0.68rem;font-weight:700;letter-spacing:.25em;color:var(--amd-red2);text-transform:uppercase; }
+
+/* Hero title */
+.hero-title {
+  font-family: 'Orbitron', monospace;
+  font-size: clamp(3.5rem, 12vw, 9rem);
+  font-weight: 900; line-height: 0.88;
+  letter-spacing: -0.04em; margin-bottom: 1rem;
+  animation: fade-up 0.6s 0.1s ease both;
+}
+.hero-title .stroke {
+  color: transparent;
+  -webkit-text-stroke: 2px var(--amd-red);
+  filter: drop-shadow(0 0 30px var(--glow-red));
+}
+.hero-title .fill { color: var(--t1); text-shadow: 0 0 80px rgba(255,255,255,0.08); }
+
+.hero-sub {
+  font-family: 'Orbitron', monospace; font-size: 0.72rem;
+  letter-spacing: 0.45em; color: var(--t2); text-transform: uppercase;
+  margin-bottom: 1.5rem; animation: fade-up 0.6s 0.2s ease both;
+}
+.hero-desc {
+  font-size: clamp(1rem, 2vw, 1.15rem); color: var(--t2); max-width: 560px;
+  line-height: 1.75; margin-bottom: 3rem;
+  animation: fade-up 0.6s 0.25s ease both;
+}
+.hero-desc strong { color: var(--t1); font-weight: 500; }
+
+/* CTA buttons */
+.hero-cta { display:flex;gap:1rem;flex-wrap:wrap;justify-content:center; animation:fade-up 0.6s 0.3s ease both; margin-bottom:4rem; }
+.btn-primary {
+  padding: 0.85rem 2.5rem;
+  background: linear-gradient(135deg, var(--amd-red2), var(--amd-dark));
+  color: #fff; border: none; border-radius: 10px;
+  font-family: 'Orbitron', monospace; font-size: 0.82rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;
+  box-shadow: 0 4px 24px var(--glow-red), inset 0 1px 0 rgba(255,255,255,0.2);
+  text-decoration: none; display: inline-block; position: relative; overflow: hidden;
+  transition: transform 0.15s, box-shadow 0.2s;
+}
+.btn-primary::after { content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,0.12) 0%,transparent 55%);border-radius:10px; }
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 36px var(--glow-red), 0 0 80px var(--glow-red2), inset 0 1px 0 rgba(255,255,255,0.25); }
+.btn-ghost {
+  padding: 0.85rem 2.5rem;
+  background: rgba(255,255,255,0.04);
+  color: var(--t1); border: 1px solid rgba(237,28,36,0.3); border-radius: 10px;
+  font-family: 'Orbitron', monospace; font-size: 0.82rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;
+  text-decoration: none; display: inline-block;
+  backdrop-filter: blur(12px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+  transition: all 0.2s;
+}
+.btn-ghost:hover { border-color: var(--amd-red); background: rgba(237,28,36,0.08); box-shadow: 0 0 24px rgba(237,28,36,0.12), inset 0 1px 0 rgba(255,255,255,0.06); }
+
+/* Hero stats */
+.hero-stats {
+  display: flex;
+  animation: fade-up 0.6s 0.4s ease both;
+}
+.hero-stat-wrap {
+  padding: 0; display: flex;
+  background: var(--glass-bg);
+  backdrop-filter: blur(24px);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.07);
+}
+.hero-stat {
+  padding: 1.5rem 2rem; text-align: center;
+  border-right: 1px solid rgba(237,28,36,0.1);
+}
+.hero-stat:last-child { border-right: none; }
+.hero-stat-num {
+  font-family: 'Orbitron', monospace; font-size: 2rem; font-weight: 900;
+  color: var(--amd-red2); display: block; line-height: 1;
+  text-shadow: 0 0 24px var(--glow-red);
+}
+.hero-stat-label { font-size: 0.6rem; letter-spacing: 0.2em; color: var(--t2); text-transform: uppercase; margin-top: 6px; display: block; }
+
+@keyframes fade-up { from{opacity:0;transform:translateY(28px)} to{opacity:1;transform:none} }
+
+/* ── SCROLL INDICATOR ── */
+.scroll-hint {
+  position: absolute; bottom: 2.5rem; left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  color: var(--t3); font-size: 0.6rem; letter-spacing: 0.3em; text-transform: uppercase;
+  animation: scroll-bob 2.5s ease-in-out infinite;
+}
+.scroll-mouse {
+  width: 22px; height: 34px; border: 1px solid rgba(237,28,36,0.25); border-radius: 11px;
+  display: flex; align-items: flex-start; justify-content: center; padding-top: 6px;
+}
+.scroll-dot { width: 4px; height: 8px; background: var(--amd-red); border-radius: 2px; animation: scroll-dot-anim 2.5s ease-in-out infinite; }
+@keyframes scroll-bob { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(8px)} }
+@keyframes scroll-dot-anim { 0%,100%{transform:translateY(0);opacity:1} 60%{transform:translateY(8px);opacity:0.3} }
+
+/* ── SECTION BASE ── */
+section { padding: 7rem 2rem; }
+.container { max-width: 1240px; margin: 0 auto; }
+.s-label { font-family:'Orbitron',monospace; font-size:0.65rem; font-weight:700; letter-spacing:.4em; color:var(--amd-red2); text-transform:uppercase; margin-bottom:.8rem; opacity:.8; }
+.s-title { font-family:'Orbitron',monospace; font-size:clamp(1.6rem,3.5vw,2.8rem); font-weight:700; line-height:1.1; margin-bottom:1.2rem; }
+.s-desc { font-size:1rem; color:var(--t2); line-height:1.75; max-width:540px; }
+
+/* ── REVEAL ── */
+.reveal { opacity:0;transform:translateY(30px);transition:opacity 0.7s ease,transform 0.7s ease; }
+.reveal.visible { opacity:1;transform:none; }
+
+/* ── DIVIDER ── */
+.divider { height:1px; background:linear-gradient(90deg,transparent,rgba(237,28,36,0.2),transparent); }
+
+/* ── AGENTS ── */
+.agents-grid {
+  display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-top: 3.5rem;
+}
+@media(max-width:900px){.agents-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:550px){.agents-grid{grid-template-columns:1fr}}
+
+.agent-card {
+  padding: 1.8rem; cursor: default; transition: transform 0.3s ease, box-shadow 0.3s ease;
+  background: var(--glass-bg);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 16px;
+  position: relative; overflow: hidden;
+}
+.agent-card::before {
+  content: '';
+  position: absolute; inset: 0; border-radius: 16px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, transparent 55%);
+  pointer-events: none;
+}
+.agent-card::after {
+  content: '';
+  position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+  background: var(--ac, var(--amd-red));
+  transform: scaleX(0); transition: transform 0.35s ease; transform-origin: left;
+  box-shadow: 0 0 12px var(--ac, var(--amd-red));
+}
+.agent-card:hover { transform: translateY(-4px); box-shadow: 0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(237,28,36,0.15); }
+.agent-card:hover::after { transform: scaleX(1); }
+
+.agent-gem {
+  width: 42px; height: 42px; border-radius: 10px;
+  background: linear-gradient(135deg, var(--ac,var(--amd-red)), rgba(0,0,0,0.3));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.3rem; margin-bottom: 1.2rem;
+  box-shadow: 0 0 20px color-mix(in srgb, var(--ac,var(--amd-red)) 40%, transparent), inset 0 1px 0 rgba(255,255,255,0.2);
+  position: relative;
+}
+.agent-gem::after { content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,0.15) 0%,transparent 55%);border-radius:10px; }
+.agent-name { font-family:'Orbitron',monospace;font-size:0.82rem;font-weight:700;color:var(--t1);margin-bottom:3px;letter-spacing:.04em; }
+.agent-role { font-size:0.62rem;font-weight:600;letter-spacing:.18em;color:var(--ac,var(--amd-red));text-transform:uppercase;margin-bottom:.8rem;opacity:.7; }
+.agent-desc { font-size:0.83rem;color:var(--t2);line-height:1.6; }
+.agent-live {
+  display:inline-flex;align-items:center;gap:6px;margin-top:.8rem;
+  font-size:0.6rem;font-weight:700;letter-spacing:.18em;color:var(--green);text-transform:uppercase;
+}
+.live-dot-inner { width:5px;height:5px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:live-blink 1.2s ease-in-out infinite; }
+@keyframes live-blink{0%,100%{opacity:1}50%{opacity:.2}}
+
+/* ── METRICS ── */
+.metrics-grid { display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:3rem; }
+@media(max-width:768px){.metrics-grid{grid-template-columns:1fr}}
+
+.m-panel {
+  overflow: hidden;
+  background: var(--glass-bg);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 16px;
+  position: relative;
+}
+.m-panel::before { content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.15),transparent); }
+.m-head {
+  padding: .9rem 1.3rem;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  display: flex; align-items: center; justify-content: space-between;
+  background: rgba(255,255,255,0.02);
+}
+.m-head-title { font-family:'Orbitron',monospace;font-size:.65rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--t2); }
+.live-badge { display:flex;align-items:center;gap:5px;font-size:.58rem;font-weight:700;letter-spacing:.15em;color:var(--green);text-transform:uppercase; }
+.m-body { padding: 1.3rem; }
+.m-row { display:flex;align-items:center;gap:10px;margin-bottom:1rem; }
+.m-row:last-child { margin-bottom:0; }
+.m-key { font-size:.72rem;color:var(--t2);min-width:95px; }
+
+/* Glass progress bars */
+.m-bar-track {
+  flex: 1; height: 6px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 3px; overflow: visible;
+  position: relative;
+  box-shadow: inset 0 1px 0 rgba(0,0,0,0.2);
+}
+.m-bar {
+  height: 100%; border-radius: 3px;
+  transition: width .8s cubic-bezier(.4,0,.2,1);
+  position: relative;
+  box-shadow: 0 0 8px currentColor;
+}
+.m-bar::after { content:'';position:absolute;top:0;left:0;right:0;height:50%;background:rgba(255,255,255,0.3);border-radius:3px 3px 0 0; }
+.bar-r { background:linear-gradient(90deg,#B01219,#FF3B3F);color:#FF3B3F; }
+.bar-o { background:linear-gradient(90deg,#AA4000,#FF7A00);color:#FF7A00; }
+.bar-g { background:linear-gradient(90deg,#007744,#00FFA3);color:#00FFA3; }
+.bar-b { background:linear-gradient(90deg,#0055AA,#00BFFF);color:#00BFFF; }
+.bar-p { background:linear-gradient(90deg,#7722AA,#BF5FFF);color:#BF5FFF; }
+.m-val { font-family:'Orbitron',monospace;font-size:.75rem;font-weight:700;min-width:55px;text-align:right; }
+.hot{color:#FF3B3F}.warn{color:var(--yellow)}.ok{color:var(--green)}
+.spark-label { font-size:.58rem;color:var(--t3);letter-spacing:.18em;text-transform:uppercase;margin:1.2rem 0 5px; }
+canvas.spark { width:100%;height:46px;display:block; }
+
+/* AI console */
+.prompt-box {
+  margin-top: 1rem;
+  background: var(--glass-bg);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 16px; overflow: hidden;
+}
+.prompt-head {
+  padding: .85rem 1.3rem;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  background: rgba(255,255,255,0.025);
+  font-family:'Orbitron',monospace;font-size:.62rem;font-weight:700;
+  letter-spacing:.2em;text-transform:uppercase;color:var(--t2);
+  display:flex;align-items:center;gap:8px;
+}
+.prompt-body { padding: 1.3rem; }
+.chips { display:flex;flex-wrap:wrap;gap:6px;margin-bottom:1rem; }
+.chip {
+  padding: .3rem .85rem;
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 100px; font-size:.72rem;color:var(--t2);cursor:pointer;
+  transition:all .2s; font-family:'Inter',sans-serif;
+  backdrop-filter: blur(8px);
+}
+.chip:hover,.chip.active {
+  border-color: rgba(237,28,36,0.4); color:var(--t1);
+  background: rgba(237,28,36,0.1);
+  box-shadow: 0 0 14px rgba(237,28,36,0.1);
+}
+.prompt-row { display:flex;gap:8px; }
+.prompt-input {
+  flex:1; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08);
+  border-radius:10px; padding:.7rem 1rem;color:var(--t1);font-family:'Inter',sans-serif;
+  font-size:.85rem;outline:none;transition:border-color .2s;
+  backdrop-filter: blur(8px);
+}
+.prompt-input:focus { border-color:rgba(237,28,36,0.4);box-shadow:0 0 0 2px rgba(237,28,36,0.08); }
+.prompt-input::placeholder { color:var(--t3); }
+.prompt-btn {
+  padding:.7rem 1.4rem;
+  background:linear-gradient(135deg,var(--amd-red2),var(--amd-dark));
+  color:#fff;border:none;border-radius:10px;
+  font-family:'Orbitron',monospace;font-weight:700;font-size:.78rem;
+  letter-spacing:.08em;text-transform:uppercase;cursor:pointer;
+  box-shadow:0 4px 18px var(--glow-red),inset 0 1px 0 rgba(255,255,255,0.2);
+  transition:all .2s;
+}
+.prompt-btn:hover { transform:translateY(-1px);box-shadow:0 6px 28px var(--glow-red); }
+.ai-resp {
+  margin-top:1rem;padding:1rem;
+  background:rgba(0,255,163,0.04);
+  border:1px solid rgba(0,255,163,0.1);border-radius:10px;display:none;
+  backdrop-filter:blur(8px);
+}
+.ai-resp.show{display:block}
+.ai-resp-label{font-size:.6rem;font-weight:700;letter-spacing:.2em;color:var(--green);text-transform:uppercase;margin-bottom:5px}
+.ai-resp-text{font-size:.82rem;color:var(--t2);line-height:1.65}
+.ai-resp-text .hl{color:var(--t1);font-weight:500}
+#connection-badge{margin-left:auto;font-size:.6rem;padding:3px 10px;border:1px solid rgba(255,208,0,.3);border-radius:100px;color:var(--yellow);font-family:'Inter',sans-serif;}
+
+/* ── HOW IT WORKS ── */
+.flow-wrap { display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:0;margin-top:3.5rem; }
+.flow-node {
+  padding: 1.5rem 1rem; text-align: center; width: 145px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--blur);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 14px;
+  transition: transform .3s, box-shadow .3s;
+  position: relative; overflow: hidden;
+}
+.flow-node::before { content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,0.05) 0%,transparent 50%);pointer-events:none; }
+.flow-node:hover { transform:translateY(-4px);box-shadow:0 12px 36px rgba(0,0,0,0.4); }
+.flow-icon-gem {
+  width:40px;height:40px;border-radius:10px;margin:0 auto 1rem;
+  display:flex;align-items:center;justify-content:center;font-size:1.3rem;
+  background:rgba(237,28,36,0.12);border:1px solid rgba(237,28,36,0.2);
+  box-shadow:0 0 16px rgba(237,28,36,0.1);
+}
+.flow-name{font-family:'Orbitron',monospace;font-size:.6rem;font-weight:700;letter-spacing:.06em;color:var(--amd-red2);margin-bottom:.3rem}
+.flow-desc{font-size:.65rem;color:var(--t2);line-height:1.45}
+.flow-arr{color:var(--amd-red);font-size:1rem;opacity:.3;padding:0 6px;animation:arr-pulse 2s ease-in-out infinite}
+@keyframes arr-pulse{0%,100%{opacity:.15}50%{opacity:.55}}
+
+/* ── PROFILES ── */
+.profiles-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:16px;margin-top:3.5rem}
+@media(max-width:900px){.profiles-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:500px){.profiles-grid{grid-template-columns:repeat(2,1fr)}}
+.prof-card {
+  padding: 1.6rem .8rem; text-align: center; cursor: pointer;
+  background: var(--glass-bg);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 14px;
+  position: relative; overflow: hidden;
+  transition: transform .3s, box-shadow .3s;
+}
+.prof-card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,0.05) 0%,transparent 50%);pointer-events:none}
+.prof-card::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--pc,var(--amd-red));transform:scaleX(0);transition:transform .3s;box-shadow:0 0 10px var(--pc,var(--amd-red))}
+.prof-card:hover{transform:translateY(-4px);box-shadow:0 12px 40px rgba(0,0,0,0.5)}
+.prof-card:hover::after{transform:scaleX(1)}
+.prof-icon-gem{width:44px;height:44px;border-radius:12px;margin:0 auto .9rem;display:flex;align-items:center;justify-content:center;font-size:1.4rem;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);box-shadow:inset 0 1px 0 rgba(255,255,255,0.1)}
+.prof-name{font-family:'Orbitron',monospace;font-size:.65rem;font-weight:700;letter-spacing:.06em;color:var(--pc,var(--amd-red2));margin-bottom:.3rem;text-transform:uppercase}
+.prof-tdp{font-family:'Orbitron',monospace;font-size:1.5rem;font-weight:900;color:var(--t1);line-height:1;text-shadow:0 0 20px rgba(255,255,255,0.08)}
+.prof-tdp-l{font-size:.55rem;letter-spacing:.15em;color:var(--t3);margin:3px 0 7px;text-transform:uppercase}
+.prof-desc{font-size:.7rem;color:var(--t2);line-height:1.5}
+
+/* ── LIVE STATUS ── */
+.status-bar {
+  display:flex;align-items:center;gap:10px;padding:.9rem 1.3rem;
+  border-radius:12px;margin-bottom:2rem;
+  background:rgba(255,208,0,0.04);border:1px solid rgba(255,208,0,0.15);
+  backdrop-filter:blur(12px);
+}
+#live-dot{width:8px;height:8px;border-radius:50%;background:var(--yellow);box-shadow:0 0 10px var(--yellow);animation:live-blink 1s infinite;flex-shrink:0}
+#live-status-text{font-size:.78rem;color:var(--yellow);font-family:'Orbitron',monospace;font-weight:700;letter-spacing:.08em}
+#live-last-update{margin-left:auto;font-size:.65rem;color:var(--t3)}
+.status-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+@media(max-width:900px){.status-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:480px){.status-grid{grid-template-columns:1fr}}
+
+.s-card {
+  padding: 1.6rem;
+  background: var(--glass-bg);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 16px;
+  position: relative; overflow: hidden;
+}
+.s-card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,0.04) 0%,transparent 50%);pointer-events:none}
+.s-card-head{display:flex;align-items:center;gap:10px;margin-bottom:1.4rem}
+.s-card-icon-gem{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;background:rgba(237,28,36,0.1);border:1px solid rgba(237,28,36,0.18);box-shadow:0 0 14px rgba(237,28,36,0.08),inset 0 1px 0 rgba(255,255,255,0.1)}
+.s-card-title{font-family:'Orbitron',monospace;font-size:.7rem;font-weight:700;color:var(--amd-red2)}
+.s-card-sub{font-size:.6rem;color:var(--t3);margin-top:2px}
+
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.stat-box{
+  padding:.85rem .7rem;text-align:center;
+  background:rgba(255,255,255,0.03);
+  border:1px solid rgba(255,255,255,0.06);border-radius:10px;
+  position:relative;overflow:hidden;
+}
+.stat-box::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.12),transparent)}
+.stat-big{font-family:'Orbitron',monospace;font-size:1.4rem;font-weight:900;color:var(--amd-red2);line-height:1}
+.stat-unit{font-size:.55rem;letter-spacing:.15em;color:var(--t3);text-transform:uppercase;margin-top:3px}
+.core-row{display:flex;gap:3px;align-items:flex-end;height:34px;margin-top:1rem}
+.ram-bar-track{height:6px;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden;margin-top:8px;box-shadow:inset 0 1px 0 rgba(0,0,0,0.2)}
+.ram-bar-fill{height:100%;background:linear-gradient(90deg,#005588,#00BFFF);border-radius:3px;transition:width 1s ease;position:relative}
+.ram-bar-fill::after{content:'';position:absolute;top:0;left:0;right:0;height:50%;background:rgba(255,255,255,0.25);border-radius:3px 3px 0 0}
+.spark-row{
+  background:var(--glass-bg);backdrop-filter:var(--blur);border:1px solid rgba(255,255,255,0.06);
+  border-radius:12px;padding:1.3rem;margin-top:16px;
+  display:grid;grid-template-columns:1fr 1fr;gap:2rem;
+}
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:.5rem 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+.info-row:last-child{border-bottom:none}
+.info-key{font-size:.72rem;color:var(--t2)}
+.info-val{font-family:'Orbitron',monospace;font-size:.72rem;color:var(--t1)}
+
+/* Battery gauge */
+.bat-gauge-wrap{text-align:center;margin-bottom:.8rem}
+
+/* ── FEAT SECTIONS ── */
+.feat-2col{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;margin-top:3rem}
+@media(max-width:768px){.feat-2col{grid-template-columns:1fr}}
+.feat-card{
+  background:var(--glass-bg);backdrop-filter:var(--blur);-webkit-backdrop-filter:var(--blur);
+  border:1px solid rgba(255,255,255,0.07);border-radius:16px;overflow:hidden;
+  position:relative;
+}
+.feat-card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,0.04) 0%,transparent 50%);pointer-events:none}
+.feat-card-head{padding:.9rem 1.3rem;border-bottom:1px solid rgba(255,255,255,0.05);background:rgba(255,255,255,0.02);display:flex;align-items:center;justify-content:space-between;position:relative}
+.feat-card-title{font-family:'Orbitron',monospace;font-size:.62rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--t2)}
+.feat-card-body{padding:1.3rem}
+
+/* FPS */
+.fps-display{text-align:center;padding:1.5rem;background:rgba(0,255,163,0.04);border:1px solid rgba(0,255,163,0.1);border-radius:12px;margin-bottom:1rem;position:relative;overflow:hidden}
+.fps-display::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,255,163,0.3),transparent)}
+#fps-big{font-family:'Orbitron',monospace;font-size:4.5rem;font-weight:900;color:var(--green);line-height:1;filter:drop-shadow(0 0 20px rgba(0,255,163,0.5))}
+#fps-profile-label{font-size:.62rem;color:var(--t3);letter-spacing:.15em;text-transform:uppercase;margin-top:6px}
+#thermal-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+
+/* History */
+.hist-tabs{display:flex;gap:4px;flex-wrap:wrap}
+.hist-tab{
+  padding:.3rem .85rem;
+  background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);
+  border-radius:8px;color:var(--t2);font-family:'Orbitron',monospace;font-weight:700;
+  font-size:.62rem;cursor:pointer;letter-spacing:.08em;text-transform:uppercase;transition:all .2s;
+}
+.hist-tab.active{background:rgba(237,28,36,0.2);border-color:rgba(237,28,36,0.4);color:var(--amd-red2);box-shadow:0 0 14px rgba(237,28,36,0.1)}
+
+/* Schedule */
+.sched-row{display:flex;align-items:center;gap:8px;padding:.5rem .75rem;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:8px;margin-bottom:5px}
+
+/* Alerts */
+.alert-row{padding:.6rem .8rem;border-radius:8px;display:flex;gap:8px;align-items:flex-start;margin-bottom:4px}
+
+/* Chat */
+#chat-messages{height:300px;overflow-y:auto;padding:1.2rem;display:flex;flex-direction:column;gap:10px}
+.chat-msg-ai{background:rgba(237,28,36,0.07);border:1px solid rgba(237,28,36,0.12);border-radius:12px;padding:.9rem;max-width:85%;position:relative;overflow:hidden}
+.chat-msg-ai::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(237,28,36,0.3),transparent)}
+.chat-msg-user{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:.9rem;max-width:85%;align-self:flex-end;margin-left:auto}
+.chat-from{font-size:.58rem;font-weight:700;letter-spacing:.15em;margin-bottom:5px}
+.chat-text{font-size:.82rem;color:var(--t2);line-height:1.55}
+.chat-input-row{padding:1rem;display:flex;gap:8px;border-top:1px solid rgba(255,255,255,0.05)}
+.chat-input{flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:.65rem .9rem;color:var(--t1);font-family:'Inter',sans-serif;font-size:.83rem;outline:none;backdrop-filter:blur(8px)}
+.chat-input:focus{border-color:rgba(237,28,36,0.35)}
+.chat-send{padding:.65rem 1.3rem;background:linear-gradient(135deg,var(--amd-red2),var(--amd-dark));color:#fff;border:none;border-radius:10px;font-family:'Orbitron',monospace;font-weight:700;font-size:.78rem;cursor:pointer;letter-spacing:.06em;box-shadow:0 4px 16px var(--glow-red),inset 0 1px 0 rgba(255,255,255,0.2);transition:all .2s}
+.chat-send:hover{transform:translateY(-1px);box-shadow:0 6px 24px var(--glow-red)}
+.chat-quick-wrap{padding:0 1.2rem;display:flex;gap:6px;flex-wrap:wrap}
+.chat-quick{padding:.28rem .75rem;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:100px;color:var(--t2);font-size:.7rem;cursor:pointer;font-family:Inter,sans-serif;transition:all .2s;backdrop-filter:blur(8px)}
+.chat-quick:hover{border-color:rgba(237,28,36,0.35);color:var(--t1)}
+
+/* Benchmark */
+.bench-score-box{text-align:center;padding:1.5rem;background:rgba(237,28,36,0.05);border:1px solid rgba(237,28,36,0.12);border-radius:12px;margin-top:1rem;display:none}
+#bench-score{font-family:'Orbitron',monospace;font-size:2.8rem;font-weight:900;color:var(--amd-red2);filter:drop-shadow(0 0 16px var(--glow-red))}
+.lb-row{display:grid;grid-template-columns:28px 1fr 70px 70px 55px;gap:6px;padding:.5rem;border-radius:6px;margin-bottom:2px;align-items:center}
+.lb-rank{font-size:.9rem;text-align:center}
+.lb-name{font-size:.78rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lb-score{font-family:'Orbitron',monospace;font-size:.68rem;text-align:right}
+.lb-prof{font-size:.58rem;text-align:right;text-transform:uppercase;letter-spacing:.05em}
+
+/* ── INSTALL ── */
+.code-block{
+  background:rgba(4,7,13,0.9);border:1px solid rgba(237,28,36,0.15);
+  border-radius:14px;padding:1.6rem 2rem;text-align:left;
+  font-family:'Courier New',monospace;font-size:.83rem;line-height:2.2;
+  max-width:620px;margin:2rem auto 0;
+  backdrop-filter:blur(16px);position:relative;overflow:hidden;
+}
+.code-block::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--amd-red),var(--orange),transparent)}
+.code-block::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,0.02) 0%,transparent 50%);pointer-events:none}
+.cp{color:var(--amd-red2)}.cc{color:var(--t3);font-style:italic}.ck{color:var(--blue)}.cv{color:var(--yellow)}.cm{color:#88cc88}
+
+/* ── FOOTER ── */
+footer{border-top:1px solid rgba(237,28,36,0.1);padding:2rem;text-align:center;color:var(--t3);font-size:.72rem;letter-spacing:.05em;display:flex;align-items:center;justify-content:center;gap:2rem;flex-wrap:wrap;background:rgba(4,7,13,0.8);backdrop-filter:blur(16px)}
+.footer-logo{font-family:'Orbitron',monospace;font-weight:900;font-size:.82rem;color:var(--amd-red2)}
+
+/* Form inputs */
+input[type=range]{accent-color:var(--amd-red);width:100%}
+input[type=text],input[type=time],select{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:.5rem .75rem;color:var(--t1);font-family:'Inter',sans-serif;font-size:.82rem;outline:none;backdrop-filter:blur(8px)}
+input[type=text]:focus,input[type=time]:focus{border-color:rgba(237,28,36,0.35)}
+select option{background:#070C14}
+</style>
+</head>
+<body>
+
+<canvas id="bg-canvas"></canvas>
+<div class="scanlines"></div>
+
+<div class="page">
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="nav-logo">
+    <div class="nav-logo-gem">RS</div>
+    RyzenSense
+    <span class="nav-badge"></span>
+  </a>
+  <div class="nav-links">
+    <a href="#agents">Agents</a>
+    <a href="#metrics">Metrics</a>
+    <a href="#profiles">Profiles</a>
+    <a href="#live-status">Live</a>
+    <a href="#chat-section">AI Chat</a>
+    <a href="#leaderboard-section">Scores</a>
+  </div>
+  <a href="#install" class="nav-cta">Get Started</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-orb"></div>
+  <div class="hero-ring"></div>
+  <div class="hero-ring"></div>
+  <div class="hero-ring"></div>
+
+  <div class="amd-badge">
+    <div class="amd-orb">AMD</div>
+    <span class="amd-badge-text">AI Hackathon 2026</span>
+  </div>
+
+  <h1 class="hero-title">
+    <div class="stroke">RYZEN</div>
+    <div class="fill">SENSE</div>
+  </h1>
+  <p class="hero-sub">Multi-Agent AMD Hardware AI &mdash; Version </p>
+  <p class="hero-desc">
+    <strong>6 specialized AI agents</strong> collaborating in real-time to autonomously tune your AMD CPU and GPU through natural language, thermal prediction, and intelligent workload detection.
+  </p>
+  <div class="hero-cta">
+    <a href="#install" class="btn-primary">Get Started</a>
+    <a href="#agents" class="btn-ghost">Meet the Agents</a>
+  </div>
+
+  <div class="hero-stats">
+    <div class="hero-stat-wrap">
+      <div class="hero-stat"><span class="hero-stat-num">6</span><span class="hero-stat-label">AI Agents</span></div>
+      <div class="hero-stat"><span class="hero-stat-num">1Hz</span><span class="hero-stat-label">Telemetry</span></div>
+      <div class="hero-stat"><span class="hero-stat-num">30s</span><span class="hero-stat-label">Forecast</span></div>
+      <div class="hero-stat"><span class="hero-stat-num">8</span><span class="hero-stat-label">Features</span></div>
+    </div>
+  </div>
+
+  <div class="scroll-hint">
+    <div class="scroll-mouse"><div class="scroll-dot"></div></div>
+    Scroll
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- AGENTS -->
+<section id="agents" style="background:rgba(4,7,13,0.6)">
+  <div class="container">
+    <p class="s-label reveal">The System</p>
+    <h2 class="s-title reveal">6 Agents. One Mission.</h2>
+    <p class="s-desc reveal">Each agent specializes in a domain and communicates through a central orchestrator event bus.</p>
+    <div class="agents-grid reveal">
+      <div class="agent-card" style="--ac:#00BFFF">
+        <div class="agent-gem" style="--ac:#00BFFF">📡</div>
+        <div class="agent-name">TelemetryAgent</div>
+        <div class="agent-role">Hardware Observer</div>
+        <div class="agent-desc">Polls CPU, GPU, power and memory every second. Broadcasts live state to all agents via the event bus.</div>
+        <div class="agent-live"><div class="live-dot-inner"></div>Polling 1Hz</div>
+      </div>
+      <div class="agent-card" style="--ac:#ED1C24">
+        <div class="agent-gem" style="--ac:#ED1C24">🤖</div>
+        <div class="agent-name">TuningAgent</div>
+        <div class="agent-role">AI Decision Maker</div>
+        <div class="agent-desc">Converts natural language goals into precise ryzenadj and amdsmi tuning commands using Claude API.</div>
+        <div class="agent-live"><div class="live-dot-inner"></div>Awaiting goals</div>
+      </div>
+      <div class="agent-card" style="--ac:#FF7A00">
+        <div class="agent-gem" style="--ac:#FF7A00">👁️</div>
+        <div class="agent-name">WatchdogAgent</div>
+        <div class="agent-role">Thermal Guardian</div>
+        <div class="agent-desc">Monitors for CPU &gt;90°C, GPU &gt;92°C, workload shifts and low battery — then auto-requests tuning.</div>
+        <div class="agent-live"><div class="live-dot-inner"></div>All clear</div>
+      </div>
+      <div class="agent-card" style="--ac:#BF5FFF">
+        <div class="agent-gem" style="--ac:#BF5FFF">🔮</div>
+        <div class="agent-name">PredictionAgent</div>
+        <div class="agent-role">Proactive Forecaster</div>
+        <div class="agent-desc">Uses linear regression on 2 minutes of history to forecast thermals 30 seconds ahead. Acts pre-emptively.</div>
+        <div class="agent-live"><div class="live-dot-inner"></div>Forecasting</div>
+      </div>
+      <div class="agent-card" style="--ac:#FFD000">
+        <div class="agent-gem" style="--ac:#FFD000">⚡</div>
+        <div class="agent-name">BenchmarkAgent</div>
+        <div class="agent-role">Performance Analyst</div>
+        <div class="agent-desc">Runs multi-threaded CPU benchmarks, compares before/after tuning performance, tracks score history.</div>
+        <div class="agent-live"><div class="live-dot-inner"></div>Ready</div>
+      </div>
+      <div class="agent-card" style="--ac:#00FFA3">
+        <div class="agent-gem" style="--ac:#00FFA3">📋</div>
+        <div class="agent-name">ProfileAgent</div>
+        <div class="agent-role">Memory & Learner</div>
+        <div class="agent-desc">Manages 6 built-in profiles, logs every session to SQLite, and uses AI to recommend the best profile.</div>
+        <div class="agent-live"><div class="live-dot-inner"></div>Learning</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- METRICS -->
+<section id="metrics" style="background:rgba(7,12,20,0.7)">
+  <div class="container">
+    <p class="s-label reveal">Live System</p>
+    <h2 class="s-title reveal">Real-Time Hardware Intelligence</h2>
+    <p class="s-desc reveal">Every metric monitored continuously. Agents react within 1 second of any threshold breach.</p>
+    <div class="metrics-grid reveal">
+      <div>
+        <div class="m-panel">
+          <div class="m-head">
+            <span class="m-head-title">🔴 AMD CPU</span>
+            <span class="live-badge"><div class="live-dot-inner"></div>Live</span>
+          </div>
+          <div class="m-body">
+            <div class="m-row"><span class="m-key">Temperature</span><div class="m-bar-track"><div class="m-bar bar-o" id="cpu-temp-bar" style="width:58%"></div></div><span class="m-val warn" id="cpu-temp-val">58°C</span></div>
+            <div class="m-row"><span class="m-key">Core Load</span><div class="m-bar-track"><div class="m-bar bar-r" id="cpu-load-bar" style="width:42%"></div></div><span class="m-val" id="cpu-load-val">42%</span></div>
+            <div class="m-row"><span class="m-key">Frequency</span><div class="m-bar-track"><div class="m-bar bar-b" id="cpu-freq-bar" style="width:72%"></div></div><span class="m-val" id="cpu-freq-val">3.6G</span></div>
+            <div class="m-row"><span class="m-key">Power</span><div class="m-bar-track"><div class="m-bar bar-o" id="cpu-pwr-bar" style="width:55%"></div></div><span class="m-val" id="cpu-pwr-val">45W</span></div>
+            <div class="spark-label">Temperature — 60s</div>
+            <canvas class="spark" id="cpu-spark" width="400" height="46"></canvas>
+          </div>
+        </div>
+        <div class="prompt-box reveal" style="margin-top:16px">
+          <div class="prompt-head">🤖 AI Tuning Console<span id="connection-badge">🟡 DEMO — Run server.py</span></div>
+          <div class="prompt-body">
+            <div class="chips">
+              <button class="chip active" onclick="setPrompt(this,'gaming mode, max fps, stay under 85°C')">🎮 Gaming</button>
+              <button class="chip" onclick="setPrompt(this,'silent mode for a meeting')">🔇 Silent</button>
+              <button class="chip" onclick="setPrompt(this,'battery saver, 2 hours remaining')">🔋 Battery</button>
+              <button class="chip" onclick="setPrompt(this,'Blender rendering all night')">🖥️ Render</button>
+            </div>
+            <div class="prompt-row">
+              <input type="text" class="prompt-input" id="prompt-input" placeholder="Describe your goal..." value="gaming mode, max fps, stay under 85°C"/>
+              <button class="prompt-btn" onclick="simulateTune()">Tune →</button>
+            </div>
+            <div class="ai-resp" id="ai-response">
+              <div class="ai-resp-label">🤖 AI Response</div>
+              <div class="ai-resp-text" id="ai-response-text"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="m-panel">
+          <div class="m-head">
+            <span class="m-head-title">🟠 GPU (RDNA)</span>
+            <span class="live-badge"><div class="live-dot-inner"></div>Live</span>
+          </div>
+          <div class="m-body">
+            <div class="m-row"><span class="m-key">Temperature</span><div class="m-bar-track"><div class="m-bar bar-o" id="gpu-temp-bar" style="width:48%"></div></div><span class="m-val ok" id="gpu-temp-val">48°C</span></div>
+            <div class="m-row"><span class="m-key">GPU Load</span><div class="m-bar-track"><div class="m-bar bar-r" id="gpu-load-bar" style="width:65%"></div></div><span class="m-val" id="gpu-load-val">65%</span></div>
+            <div class="m-row"><span class="m-key">VRAM</span><div class="m-bar-track"><div class="m-bar bar-b" id="gpu-vram-bar" style="width:50%"></div></div><span class="m-val" id="gpu-vram-val">4/8GB</span></div>
+            <div class="m-row"><span class="m-key">Power</span><div class="m-bar-track"><div class="m-bar bar-g" id="gpu-pwr-bar" style="width:38%"></div></div><span class="m-val ok" id="gpu-pwr-val">72W</span></div>
+            <div class="spark-label">GPU Temp — 60s</div>
+            <canvas class="spark" id="gpu-spark" width="400" height="46"></canvas>
+          </div>
+        </div>
+        <div class="m-panel" style="margin-top:16px">
+          <div class="m-head">
+            <span class="m-head-title">🔮 30s Thermal Forecast</span>
+            <span class="live-badge"><div class="live-dot-inner"></div>Predicting</span>
+          </div>
+          <div class="m-body">
+            <div class="m-row"><span class="m-key">CPU in 30s</span><div class="m-bar-track"><div class="m-bar bar-o" id="pred-cpu-bar" style="width:61%"></div></div><span class="m-val warn" id="pred-cpu-val">61°C</span></div>
+            <div class="m-row"><span class="m-key">GPU in 30s</span><div class="m-bar-track"><div class="m-bar bar-g" id="pred-gpu-bar" style="width:50%"></div></div><span class="m-val ok" id="pred-gpu-val">50°C</span></div>
+            <div class="m-row"><span class="m-key">Risk Level</span><div class="m-bar-track"><div class="m-bar bar-g" style="width:18%"></div></div><span class="m-val ok" id="risk-val">LOW</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- HOW IT WORKS -->
+<section id="how" style="background:rgba(4,7,13,0.8);text-align:center">
+  <div class="container">
+    <p class="s-label reveal">Architecture</p>
+    <h2 class="s-title reveal">How the Agents Communicate</h2>
+    <p class="s-desc reveal" style="margin:0 auto">All agents talk through a central orchestrator. No direct coupling — full reactivity.</p>
+    <div class="flow-wrap reveal" style="gap:12px">
+      <div class="flow-node"><div class="flow-icon-gem">📡</div><div class="flow-name">Telemetry</div><div class="flow-desc">Polls hardware 1Hz</div></div>
+      <div class="flow-arr">→</div>
+      <div class="flow-node"><div class="flow-icon-gem">🔁</div><div class="flow-name">Orchestrator</div><div class="flow-desc">Routes events</div></div>
+      <div class="flow-arr">→</div>
+      <div class="flow-node"><div class="flow-icon-gem">👁️</div><div class="flow-name">Watchdog</div><div class="flow-desc">Detects anomalies</div></div>
+      <div class="flow-arr">→</div>
+      <div class="flow-node"><div class="flow-icon-gem">🤖</div><div class="flow-name">Tuning AI</div><div class="flow-desc">AI decides & applies</div></div>
+      <div class="flow-arr">→</div>
+      <div class="flow-node"><div class="flow-icon-gem">📋</div><div class="flow-name">Profile</div><div class="flow-desc">Logs & learns</div></div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- PROFILES -->
+<section id="profiles" style="background:rgba(7,12,20,0.7)">
+  <div class="container">
+    <p class="s-label reveal">Built-in Profiles</p>
+    <h2 class="s-title reveal">One Command. Perfect Tuning.</h2>
+    <p class="s-desc reveal">Apply any preset instantly or let AI generate a custom profile for your exact goal.</p>
+    <div class="profiles-grid reveal">
+      <div class="prof-card" style="--pc:#FF3B3F"><div class="prof-icon-gem">🎮</div><div class="prof-name">Gaming</div><div class="prof-tdp">65W</div><div class="prof-tdp-l">Sustained TDP</div><div class="prof-desc">Max FPS. 78W boost. 88°C limit.</div></div>
+      <div class="prof-card" style="--pc:#BF5FFF"><div class="prof-icon-gem">🔇</div><div class="prof-name">Silent</div><div class="prof-tdp">15W</div><div class="prof-tdp-l">Sustained TDP</div><div class="prof-desc">Near-silent. 75°C limit.</div></div>
+      <div class="prof-card" style="--pc:#00BFFF"><div class="prof-icon-gem">⚖️</div><div class="prof-name">Balanced</div><div class="prof-tdp">45W</div><div class="prof-tdp-l">Sustained TDP</div><div class="prof-desc">Everyday balance. 85°C.</div></div>
+      <div class="prof-card" style="--pc:#00FFA3"><div class="prof-icon-gem">🔋</div><div class="prof-name">Battery</div><div class="prof-tdp">10W</div><div class="prof-tdp-l">Sustained TDP</div><div class="prof-desc">Max battery. 70°C.</div></div>
+      <div class="prof-card" style="--pc:#FF7A00"><div class="prof-icon-gem">🖥️</div><div class="prof-name">Rendering</div><div class="prof-tdp">95W</div><div class="prof-tdp-l">Sustained TDP</div><div class="prof-desc">Sustained power. 90°C.</div></div>
+      <div class="prof-card" style="--pc:#FF3B3F"><div class="prof-icon-gem">🆘</div><div class="prof-name">Emergency</div><div class="prof-tdp">8W</div><div class="prof-tdp-l">Emergency TDP</div><div class="prof-desc">Auto-triggered. Max fans.</div></div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- LIVE STATUS -->
+<section id="live-status" style="background:rgba(4,7,13,0.8)">
+  <div class="container">
+    <p class="s-label reveal">Real Hardware</p>
+    <h2 class="s-title reveal">Your Laptop — Live Status</h2>
+    <p class="s-desc reveal">Real-time data from your laptop via Python backend. Updates every 2 seconds.</p>
+    <div style="margin-top:2rem" class="reveal">
+      <div class="status-bar" id="live-status-bar">
+        <span id="live-dot"></span>
+        <span id="live-status-text">WAITING — Start server.py to see live data</span>
+        <span id="live-last-update"></span>
+      </div>
+    </div>
+    <div class="status-grid reveal">
+      <div class="s-card">
+        <div class="s-card-head"><div class="s-card-icon-gem">🔴</div><div><div class="s-card-title">CPU</div><div class="s-card-sub" id="ls-cpu-model">Detecting...</div></div></div>
+        <div class="stat-grid">
+          <div class="stat-box"><div class="stat-big hot" id="ls-cpu-temp">--</div><div class="stat-unit">Temp</div></div>
+          <div class="stat-box"><div class="stat-big" id="ls-cpu-load">--</div><div class="stat-unit">Load</div></div>
+          <div class="stat-box"><div class="stat-big" style="color:var(--blue)" id="ls-cpu-freq">--</div><div class="stat-unit">Freq</div></div>
+          <div class="stat-box"><div class="stat-big" style="color:var(--orange)" id="ls-cpu-pwr">--</div><div class="stat-unit">Power</div></div>
+        </div>
+        <div style="font-size:.58rem;color:var(--t3);letter-spacing:.12em;text-transform:uppercase;margin-top:1rem;margin-bottom:5px">Per-Core Load</div>
+        <div class="core-row" id="ls-per-core"></div>
+      </div>
+      <div class="s-card">
+        <div class="s-card-head"><div class="s-card-icon-gem" style="background:rgba(255,122,0,0.1);border-color:rgba(255,122,0,0.2)">🟠</div><div><div class="s-card-title" style="color:var(--orange)">GPU + Memory</div><div class="s-card-sub" id="ls-gpu-model">Detecting...</div></div></div>
+        <div class="stat-grid">
+          <div class="stat-box"><div class="stat-big" style="color:var(--orange)" id="ls-gpu-temp">--</div><div class="stat-unit">GPU Temp</div></div>
+          <div class="stat-box"><div class="stat-big" id="ls-gpu-load">--</div><div class="stat-unit">GPU Load</div></div>
+          <div class="stat-box"><div class="stat-big" style="color:var(--blue)" id="ls-ram-used">--</div><div class="stat-unit">RAM Used</div></div>
+          <div class="stat-box"><div class="stat-big" style="color:var(--blue)" id="ls-ram-pct">--</div><div class="stat-unit">RAM %</div></div>
+        </div>
+        <div style="font-size:.58rem;color:var(--t3);letter-spacing:.12em;text-transform:uppercase;margin-top:1rem;margin-bottom:5px">Memory Usage</div>
+        <div class="ram-bar-track"><div class="ram-bar-fill" id="ls-ram-bar" style="width:0%"></div></div>
+      </div>
+      <div class="s-card">
+        <div class="s-card-head"><div class="s-card-icon-gem" style="background:rgba(0,255,163,0.08);border-color:rgba(0,255,163,0.15)">🔋</div><div><div class="s-card-title" style="color:var(--green)">Battery + Power</div><div class="s-card-sub" id="ls-power-status">Detecting...</div></div></div>
+        <div class="bat-gauge-wrap"><canvas id="battery-gauge" width="120" height="120" style="display:block;margin:0 auto"></canvas><div style="text-align:center;margin-top:-68px;position:relative;z-index:1"><div class="stat-big" style="color:var(--green);font-size:1.5rem" id="ls-bat-pct">--%</div><div style="font-size:.55rem;color:var(--t3);letter-spacing:.1em">BATTERY</div></div><div style="margin-top:52px"></div></div>
+        <div class="stat-grid" style="margin-top:.8rem">
+          <div class="stat-box"><div class="stat-big" style="color:var(--green)" id="ls-total-pwr">--</div><div class="stat-unit">Total Pwr</div></div>
+          <div class="stat-box"><div class="stat-big" style="font-size:1.1rem;color:var(--t1)" id="ls-bat-time">--</div><div class="stat-unit">Time Left</div></div>
+        </div>
+      </div>
+      <div class="s-card">
+        <div class="s-card-head"><div class="s-card-icon-gem" style="background:rgba(0,191,255,0.08);border-color:rgba(0,191,255,0.15)">💻</div><div><div class="s-card-title" style="color:var(--blue)">System Info</div><div class="s-card-sub">Live snapshot</div></div></div>
+        <div class="info-row"><span class="info-key">CPU Cores</span><span class="info-val" id="ls-cores">--</span></div>
+        <div class="info-row"><span class="info-key">Max Freq</span><span class="info-val" id="ls-max-freq">--</span></div>
+        <div class="info-row"><span class="info-key">Total RAM</span><span class="info-val" id="ls-total-ram">--</span></div>
+        <div class="info-row"><span class="info-key">Platform</span><span class="info-val" id="ls-platform">--</span></div>
+        <div class="info-row"><span class="info-key">Profile</span><span class="info-val" style="color:var(--amd-red2)" id="ls-active-profile">--</span></div>
+        <div class="info-row"><span class="info-key">Last Tuned</span><span class="info-val" style="font-size:.62rem;color:var(--t3)" id="ls-last-tuned">Never</span></div>
+      </div>
+    </div>
+    <div class="spark-row reveal" style="margin-top:16px">
+      <div>
+        <div class="spark-label" style="margin-top:0">CPU Temp — 60s</div>
+        <canvas id="ls-cpu-spark" width="400" height="55" style="width:100%;height:55px"></canvas>
+      </div>
+      <div>
+        <div class="spark-label" style="margin-top:0">CPU Load — 60s</div>
+        <canvas id="ls-load-spark" width="400" height="55" style="width:100%;height:55px"></canvas>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- FPS + HEATMAP -->
+<section id="fps-heatmap" style="background:rgba(7,12,20,0.7)">
+  <div class="container">
+    <div class="feat-2col">
+      <div>
+        <p class="s-label reveal">Performance</p>
+        <h2 class="s-title reveal" style="font-size:1.8rem">🎮 FPS Estimator</h2>
+        <p class="s-desc reveal" style="font-size:.9rem">Estimated FPS from CPU load and active power profile.</p>
+        <div class="reveal" style="margin-top:1.5rem">
+          <div class="fps-display"><div id="fps-big">--</div><div id="fps-profile-label">frames per second</div></div>
+          <div class="feat-card"><div class="feat-card-head"><span class="feat-card-title">FPS by Profile</span></div><div class="feat-card-body"><div id="fps-comparison"></div></div></div>
+        </div>
+      </div>
+      <div>
+        <p class="s-label reveal">Thermals</p>
+        <h2 class="s-title reveal" style="font-size:1.8rem">🌡️ Core Heatmap</h2>
+        <p class="s-desc reveal" style="font-size:.9rem">Per-core temperature and load. Updates every second.</p>
+        <div class="reveal" style="margin-top:1.5rem">
+          <div class="feat-card">
+            <div class="feat-card-head"><span class="feat-card-title">CPU Core Grid</span><span class="live-badge"><div class="live-dot-inner"></div>Live</span></div>
+            <div class="feat-card-body">
+              <div id="thermal-grid"></div>
+              <div style="margin-top:1rem;display:flex;align-items:center;gap:8px">
+                <div style="flex:1;height:4px;background:linear-gradient(90deg,#00FFA3,#FFD000,#FF3B3F);border-radius:2px"></div>
+                <span style="font-size:.6rem;color:var(--t3)">Cool → Hot</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- HISTORY -->
+<section id="history" style="background:rgba(4,7,13,0.8)">
+  <div class="container">
+    <p class="s-label reveal">Analytics</p>
+    <h2 class="s-title reveal">📈 Performance History</h2>
+    <p class="s-desc reveal">Live charts of CPU temperature, load, power and FPS over time.</p>
+    <div class="feat-card reveal" style="margin-top:2rem">
+      <div class="feat-card-head">
+        <div class="hist-tabs">
+          <button class="hist-tab active" onclick="switchHistTab(this,'temp')">TEMP</button>
+          <button class="hist-tab" onclick="switchHistTab(this,'load')">LOAD</button>
+          <button class="hist-tab" onclick="switchHistTab(this,'power')">POWER</button>
+          <button class="hist-tab" onclick="switchHistTab(this,'fps')">FPS</button>
+        </div>
+        <span id="hist-range-label" style="font-size:.65rem;color:var(--t3)">Last 60 readings</span>
+      </div>
+      <div class="feat-card-body">
+        <canvas id="history-chart" height="180" style="width:100%;display:block"></canvas>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- GAME DETECT + SCHEDULE -->
+<section style="background:rgba(7,12,20,0.7)">
+  <div class="container">
+    <div class="feat-2col">
+      <div>
+        <p class="s-label reveal">Auto-Tuning</p>
+        <h2 class="s-title reveal" style="font-size:1.8rem">🎮 Game Auto-Detect</h2>
+        <p class="s-desc reveal" style="font-size:.9rem">Automatically switches to Gaming profile when a game process is detected.</p>
+        <div class="feat-card reveal" style="margin-top:1.5rem">
+          <div class="feat-card-head"><span class="feat-card-title">Game Detection</span><span class="live-badge"><div class="live-dot-inner"></div>Active</span></div>
+          <div class="feat-card-body">
+            <div id="games-list" style="min-height:80px"><div style="font-size:.82rem;color:var(--t3);text-align:center;padding:1.5rem 0">No games detected</div></div>
+            <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid rgba(255,255,255,0.04);font-size:.7rem;color:var(--t3)">Watches: CS2, Valorant, Minecraft, Roblox, League, and 15+ more</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <p class="s-label reveal">Automation</p>
+        <h2 class="s-title reveal" style="font-size:1.8rem">🌙 Schedule Profiles</h2>
+        <p class="s-desc reveal" style="font-size:.9rem">Auto-switch power profiles at specific times of day.</p>
+        <div class="feat-card reveal" style="margin-top:1.5rem">
+          <div class="feat-card-head"><span class="feat-card-title">Schedule</span></div>
+          <div class="feat-card-body">
+            <div id="schedule-list" style="margin-bottom:1rem"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:6px;padding-top:1rem;border-top:1px solid rgba(255,255,255,0.05)">
+              <input type="time" id="sched-time" value="09:00"/>
+              <select id="sched-profile"><option value="gaming">Gaming</option><option value="balanced" selected>Balanced</option><option value="silent">Silent</option><option value="battery">Battery</option><option value="rendering">Rendering</option></select>
+              <input type="text" id="sched-label" placeholder="Label" value="Work"/>
+              <button onclick="addSchedule()" class="btn-primary" style="padding:.4rem .8rem;font-size:.72rem;border-radius:8px">+</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ALERTS -->
+<section id="alerts-section" style="background:rgba(4,7,13,0.8)">
+  <div class="container">
+    <p class="s-label reveal">Protection</p>
+    <h2 class="s-title reveal">🔔 Smart Alerts</h2>
+    <p class="s-desc reveal">Browser notifications and alert log when your laptop needs attention.</p>
+    <div class="feat-2col reveal" style="margin-top:2rem">
+      <div class="feat-card">
+        <div class="feat-card-head">
+          <span class="feat-card-title">Alert Log</span>
+          <button onclick="requestNotificationPermission()" id="notif-btn" style="padding:.25rem .75rem;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:100px;color:var(--t2);font-family:Inter,sans-serif;font-size:.65rem;cursor:pointer;letter-spacing:.08em">🔔 Enable</button>
+        </div>
+        <div class="feat-card-body"><div id="alerts-log" style="max-height:240px;overflow-y:auto;display:flex;flex-direction:column;gap:4px"><div style="font-size:.82rem;color:var(--t3);text-align:center;padding:1rem">No alerts — system healthy ✓</div></div></div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-card-head"><span class="feat-card-title">Alert Thresholds</span></div>
+        <div class="feat-card-body" style="display:flex;flex-direction:column;gap:1rem">
+          <div>
+            <label style="font-size:.72rem;color:var(--t2)">CPU Temp Warning</label>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:5px">
+              <input type="range" id="thresh-cpu-temp" min="60" max="95" value="80" step="1" oninput="document.getElementById('thresh-cpu-temp-val').textContent=this.value+'°C'"/>
+              <span id="thresh-cpu-temp-val" style="font-family:'Orbitron',monospace;font-size:.75rem;color:var(--amd-red2);min-width:40px">80°C</span>
+            </div>
+          </div>
+          <div>
+            <label style="font-size:.72rem;color:var(--t2)">CPU Load Warning</label>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:5px">
+              <input type="range" id="thresh-cpu-load" min="70" max="100" value="95" step="1" oninput="document.getElementById('thresh-cpu-load-val').textContent=this.value+'%'"/>
+              <span id="thresh-cpu-load-val" style="font-family:'Orbitron',monospace;font-size:.75rem;color:var(--yellow);min-width:40px">95%</span>
+            </div>
+          </div>
+          <div>
+            <label style="font-size:.72rem;color:var(--t2)">Battery Low Warning</label>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:5px">
+              <input type="range" id="thresh-battery" min="5" max="30" value="15" step="1" oninput="document.getElementById('thresh-battery-val').textContent=this.value+'%'"/>
+              <span id="thresh-battery-val" style="font-family:'Orbitron',monospace;font-size:.75rem;color:var(--green);min-width:40px">15%</span>
+            </div>
+          </div>
+          <button onclick="saveThresholds()" class="btn-primary" style="padding:.55rem;font-size:.82rem;border-radius:10px;width:100%">Save Thresholds</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- AI CHAT -->
+<section id="chat-section" style="background:rgba(7,12,20,0.7)">
+  <div class="container">
+    <p class="s-label reveal">AI Assistant</p>
+    <h2 class="s-title reveal">💬 Ask Your Hardware Anything</h2>
+    <p class="s-desc reveal">Chat with the AI about temperatures, tips, or what profile to use.</p>
+    <div class="feat-card reveal" style="margin-top:2rem;max-width:720px;margin-left:auto;margin-right:auto">
+      <div id="chat-messages">
+        <div class="chat-msg-ai">
+          <div class="chat-from" style="color:var(--amd-red2)">🤖 RYZEN AI</div>
+          <div class="chat-text">Hey! I'm your hardware AI. Ask me about CPU temps, best profiles, battery tips, or anything about your laptop's performance.</div>
+        </div>
+      </div>
+      <div class="chat-quick-wrap" style="padding:.8rem 1.2rem">
+        <button class="chat-quick" onclick="sendChat('Why is my CPU hot?')">🌡️ Why CPU hot?</button>
+        <button class="chat-quick" onclick="sendChat('Best profile right now?')">⚡ Best profile?</button>
+        <button class="chat-quick" onclick="sendChat('How to improve battery life?')">🔋 Battery tips?</button>
+        <button class="chat-quick" onclick="sendChat('Is my laptop running normally?')">✅ System OK?</button>
+      </div>
+      <div class="chat-input-row">
+        <input type="text" class="chat-input" id="chat-input" placeholder="Ask about your hardware..." onkeydown="if(event.key==='Enter')sendChat()"/>
+        <button class="chat-send" onclick="sendChat()" id="chat-send-btn">Send</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- LEADERBOARD -->
+<section id="leaderboard-section" style="background:rgba(4,7,13,0.8)">
+  <div class="container">
+    <p class="s-label reveal">Competition</p>
+    <h2 class="s-title reveal">🏆 Benchmark Leaderboard</h2>
+    <p class="s-desc reveal">Run a benchmark and compare your score.</p>
+    <div class="feat-2col reveal" style="margin-top:2rem">
+      <div class="feat-card">
+        <div class="feat-card-head"><span class="feat-card-title">Run Benchmark</span></div>
+        <div class="feat-card-body">
+          <input type="text" id="bench-username" placeholder="Your name / team" value="Hackathon Team" style="width:100%;margin-bottom:1rem"/>
+          <button onclick="runBenchmark()" id="bench-btn" class="btn-primary" style="width:100%;padding:.85rem;font-size:.85rem;border-radius:10px">⚡ Run Benchmark</button>
+          <div class="bench-score-box" id="bench-results">
+            <div id="bench-score">--</div>
+            <div style="font-size:.6rem;color:var(--t3);letter-spacing:.15em;text-transform:uppercase;margin-top:4px">Multi-Thread Score</div>
+            <div id="bench-details" style="font-size:.78rem;color:var(--t2);margin-top:.8rem;line-height:1.7"></div>
+          </div>
+        </div>
+      </div>
+      <div class="feat-card">
+        <div class="feat-card-head">
+          <span class="feat-card-title">Top Scores</span>
+          <button onclick="loadLeaderboard()" style="font-size:.68rem;color:var(--amd-red2);background:none;border:none;cursor:pointer;font-family:'Orbitron',monospace;font-weight:700;letter-spacing:.08em">↻ Refresh</button>
+        </div>
+        <div class="feat-card-body"><div id="leaderboard-table"><div style="font-size:.82rem;color:var(--t3);text-align:center;padding:1rem">Run a benchmark to appear here</div></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- INSTALL -->
+<section id="install" style="background:rgba(7,12,20,0.8);text-align:center">
+  <div class="container">
+    <p class="s-label reveal">Quick Start</p>
+    <h2 class="s-title reveal">Up in 60 Seconds</h2>
+    <div class="code-block reveal">
+      <div><span class="cc"># 1. Install</span></div>
+      <div><span class="cp">$</span> <span class="cm">pip install -r requirements.txt</span></div>
+      <div><span class="cc"># 2. Set API key</span></div>
+      <div><span class="cp">$</span> <span class="ck">export ANTHROPIC_API_KEY</span><span style="color:#555">=</span><span class="cv">"your-key"</span></div>
+      <div><span class="cc"># 3. Start server</span></div>
+      <div><span class="cp">$</span> <span class="cm">python server.py</span></div>
+      <div><span class="cc"># 4. Open browser</span></div>
+      <div><span class="cp">$</span> <span class="cm">http://localhost:5000</span></div>
+    </div>
+    <div style="margin-top:2.5rem;display:flex;gap:1rem;justify-content:center;flex-wrap:wrap">
+      <a href="https://console.anthropic.com" target="_blank" class="btn-primary">Get API Key →</a>
+      <a href="#agents" class="btn-ghost">View Agents</a>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<footer>
+  <span class="footer-logo">AMD</span>
+  <span>RyzenSense v3 — Multi-Agent Hardware AI</span>
+  <span>AMD Hackathon 2026</span>
+  <span>Python · Claude API · ryzenadj · amdsmi</span>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════════
+   3D WEBGL BACKGROUND — Glass AMD theme
+═══════════════════════════════════════════════════════ */
+(function(){
+  const canvas = document.getElementById('bg-canvas');
+  const renderer = new THREE.WebGLRenderer({canvas, alpha:true, antialias:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(innerWidth, innerHeight);
+
+  const scene = new THREE.Scene();
+  const cam = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.1, 1000);
+  cam.position.set(0,0,6);
+
+  /* Grid plane */
+  const gGeo = new THREE.PlaneGeometry(40,40,40,40);
+  const gMat = new THREE.MeshBasicMaterial({color:0xED1C24,wireframe:true,transparent:true,opacity:0.04});
+  const grid = new THREE.Mesh(gGeo, gMat);
+  grid.rotation.x = -Math.PI/2.5; grid.position.y = -4;
+  scene.add(grid);
+
+  /* Particles */
+  const N = 200; const pp = new Float32Array(N*3); const pc = new Float32Array(N*3); const pv = [];
+  for(let i=0;i<N;i++){
+    pp[i*3]=(Math.random()-.5)*22; pp[i*3+1]=(Math.random()-.5)*22; pp[i*3+2]=(Math.random()-.5)*16;
+    const r = Math.random()>.6;
+    pc[i*3]=r?.93:.05; pc[i*3+1]=r?.11:.15; pc[i*3+2]=r?.14:.55;
+    pv.push({x:(Math.random()-.5)*.004,y:(Math.random()-.5)*.004,z:(Math.random()-.5)*.003});
+  }
+  const pGeo = new THREE.BufferGeometry();
+  pGeo.setAttribute('position',new THREE.BufferAttribute(pp,3));
+  pGeo.setAttribute('color',new THREE.BufferAttribute(pc,3));
+  const pMat = new THREE.PointsMaterial({size:.05,vertexColors:true,transparent:true,opacity:.65});
+  scene.add(new THREE.Points(pGeo,pMat));
+
+  /* Floating octahedra */
+  const tris=[];
+  for(let i=0;i<10;i++){
+    const g = new THREE.OctahedronGeometry(.08+Math.random()*.14,0);
+    const m = new THREE.MeshBasicMaterial({color:Math.random()>.5?0xFF3B3F:0xFF7A00,wireframe:true,transparent:true,opacity:.15+Math.random()*.18});
+    const mesh = new THREE.Mesh(g,m);
+    mesh.position.set((Math.random()-.5)*16,(Math.random()-.5)*12,(Math.random()-.5)*10);
+    mesh.userData={rx:(Math.random()-.5)*.014,ry:(Math.random()-.5)*.018,vy:(Math.random()-.5)*.003};
+    scene.add(mesh); tris.push(mesh);
+  }
+
+  /* Glowing rings */
+  const rings=[];
+  [1.8,3.2,5.0].forEach((r,i)=>{
+    const g = new THREE.TorusGeometry(r,.006,8,90);
+    const m = new THREE.MeshBasicMaterial({color:0xED1C24,transparent:true,opacity:.05-i*.012});
+    const ring = new THREE.Mesh(g,m);
+    ring.rotation.x=Math.PI/3.5+i*.25; ring.rotation.y=i*.6;
+    ring.position.set(2-i*1.5,1,-3-i*2);
+    ring.userData={rx:.0018+i*.001,ry:.0025+i*.001};
+    scene.add(ring); rings.push(ring);
+  });
+
+  /* DNA helix */
+  const hpts=[];
+  for(let i=0;i<120;i++){const t=(i/120)*Math.PI*7;hpts.push(new THREE.Vector3(Math.cos(t)*.9-5,(i/120)*20-10,Math.sin(t)*.9-7));}
+  scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(hpts),new THREE.LineBasicMaterial({color:0xED1C24,transparent:true,opacity:.1})));
+
+  let scrollY=0,mx=0,my=0,t=0;
+  window.addEventListener('scroll',()=>{scrollY=window.scrollY});
+  window.addEventListener('mousemove',e=>{mx=(e.clientX/innerWidth-.5)*.35;my=(e.clientY/innerHeight-.5)*.22});
+  window.addEventListener('resize',()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+
+  (function anim(){
+    requestAnimationFrame(anim); t+=.004;
+    const sf=scrollY/(document.body.scrollHeight-innerHeight||1);
+    cam.position.y=1-sf*3;
+    cam.position.x+=(mx-cam.position.x)*.04;
+    cam.rotation.y+=(-mx*.07-cam.rotation.y)*.04;
+    cam.rotation.x+=(-my*.04-cam.rotation.x)*.04;
+
+    const pos=gGeo.attributes.position;
+    for(let i=0;i<pos.count;i++){const x=pos.getX(i),z=pos.getZ(i);pos.setY(i,Math.sin(x*.45+t)*.12+Math.sin(z*.35+t*.65)*.08);}
+    pos.needsUpdate=true;
+
+    const pp2=pGeo.attributes.position;
+    for(let i=0;i<N;i++){
+      let px=pp2.getX(i)+pv[i].x,py=pp2.getY(i)+pv[i].y,pz=pp2.getZ(i)+pv[i].z;
+      if(px>11)px=-11;if(px<-11)px=11;if(py>11)py=-11;if(py<-11)py=11;if(pz>9)pz=-9;if(pz<-9)pz=9;
+      pp2.setXYZ(i,px,py,pz);
+    }
+    pp2.needsUpdate=true;
+
+    tris.forEach(m=>{m.rotation.x+=m.userData.rx;m.rotation.y+=m.userData.ry;m.position.y+=m.userData.vy;if(m.position.y>7)m.userData.vy*=-1;if(m.position.y<-7)m.userData.vy*=-1;});
+    rings.forEach((r,i)=>{r.rotation.x+=r.userData.rx;r.rotation.y+=r.userData.ry;r.material.opacity=.03+Math.sin(t+i)*.015;});
+    renderer.render(scene,cam);
+  })();
+})();
+
+/* ═══════════════════════════════════════════════════════
+   SCROLL REVEAL
+═══════════════════════════════════════════════════════ */
+const rObs = new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('visible')}),{threshold:.07});
+document.querySelectorAll('.reveal').forEach(el=>rObs.observe(el));
+
+/* ═══════════════════════════════════════════════════════
+   PROFILE SIMULATION
+═══════════════════════════════════════════════════════ */
+const PROFILES={
+  gaming:{cpu:{tMin:68,tMax:85,lMin:55,lMax:90,fMin:4.0,fMax:4.8,pMin:58,pMax:78},gpu:{tMin:65,tMax:82,lMin:70,lMax:98,vMin:4,vMax:7.5,pMin:140,pMax:180},pred:{co:3,go:2,risk:'MED'},r:{profile:'gaming',reason:'TDP 65W / 78W boost. High Performance plan active.',expect:'Max FPS. Fans may spin up.'}},
+  silent:{cpu:{tMin:32,tMax:42,lMin:8,lMax:25,fMin:1.2,fMax:2.2,pMin:8,pMax:15},gpu:{tMin:28,tMax:38,lMin:5,lMax:20,vMin:.5,vMax:2,pMin:18,pMax:35},pred:{co:-1,go:-1,risk:'LOW'},r:{profile:'silent',reason:'Power Saver. CPU 15W, GPU 50W. Silent fans.',expect:'Near-silent. Performance reduced 55%.'}},
+  battery:{cpu:{tMin:28,tMax:38,lMin:5,lMax:18,fMin:.8,fMax:1.6,pMin:5,pMax:10},gpu:{tMin:25,tMax:34,lMin:2,lMax:12,vMin:.3,vMax:1.2,pMin:8,pMax:22},pred:{co:-2,go:-2,risk:'LOW'},r:{profile:'battery',reason:'Power Saver. CPU 10W, GPU 30W. All boost disabled.',expect:'Battery life +65%. Silent fans.'}},
+  render:{cpu:{tMin:82,tMax:90,lMin:88,lMax:100,fMin:3.8,fMax:4.5,pMin:85,pMax:95},gpu:{tMin:75,tMax:88,lMin:85,lMax:100,vMin:6,vMax:8,pMin:180,pMax:220},pred:{co:4,go:3,risk:'HIGH'},r:{profile:'rendering',reason:'High Performance. CPU 95W sustained. Fans max.',expect:'Max throughput. Loud fans.'}}
+};
+
+let activeProfile='gaming', transitioning=false;
+let cur={cpuTemp:72,cpuLoad:65,cpuFreq:4.1,cpuPwr:62,gpuTemp:70,gpuLoad:75,gpuVram:5.0,gpuPwr:155};
+const cpuHistory=Array.from({length:60},()=>68+Math.random()*10);
+const gpuHistory=Array.from({length:60},()=>65+Math.random()*8);
+
+function setBar(id,pct){const el=document.getElementById(id);if(el)el.style.width=Math.min(100,Math.max(0,pct))+'%'}
+function setVal(id,val){const el=document.getElementById(id);if(el)el.textContent=val}
+function lerp(a,b,t){return a+(b-a)*t}
+function randIn(a,b){return a+Math.random()*(b-a)}
+
+function applyProfileMetrics(key){
+  const p=PROFILES[key];if(!p)return;
+  const tgt={cpuTemp:randIn(p.cpu.tMin,p.cpu.tMax),cpuLoad:randIn(p.cpu.lMin,p.cpu.lMax),cpuFreq:randIn(p.cpu.fMin,p.cpu.fMax),cpuPwr:randIn(p.cpu.pMin,p.cpu.pMax),gpuTemp:randIn(p.gpu.tMin,p.gpu.tMax),gpuLoad:randIn(p.gpu.lMin,p.gpu.lMax),gpuVram:randIn(p.gpu.vMin,p.gpu.vMax),gpuPwr:randIn(p.gpu.pMin,p.gpu.pMax)};
+  const s0={...cur},t0=performance.now(),dur=1200;transitioning=true;
+  function step(now){
+    const f=Math.min(1,(now-t0)/dur),e=f<.5?2*f*f:-1+(4-2*f)*f;
+    cur={cpuTemp:lerp(s0.cpuTemp,tgt.cpuTemp,e),cpuLoad:lerp(s0.cpuLoad,tgt.cpuLoad,e),cpuFreq:lerp(s0.cpuFreq,tgt.cpuFreq,e),cpuPwr:lerp(s0.cpuPwr,tgt.cpuPwr,e),gpuTemp:lerp(s0.gpuTemp,tgt.gpuTemp,e),gpuLoad:lerp(s0.gpuLoad,tgt.gpuLoad,e),gpuVram:lerp(s0.gpuVram,tgt.gpuVram,e),gpuPwr:lerp(s0.gpuPwr,tgt.gpuPwr,e)};
+    renderMetrics();
+    if(f<1)requestAnimationFrame(step);else{transitioning=false;cur=tgt;}
+  }
+  requestAnimationFrame(step);
+  for(let i=0;i<cpuHistory.length;i++){const pg=i/cpuHistory.length;cpuHistory[i]=lerp(cpuHistory[i],randIn(p.cpu.tMin,p.cpu.tMax),pg*.6);gpuHistory[i]=lerp(gpuHistory[i],randIn(p.gpu.tMin,p.gpu.tMax),pg*.6);}
+}
+
+function renderMetrics(){
+  const m=cur,p=PROFILES[activeProfile];
+  setBar('cpu-temp-bar',(m.cpuTemp/95)*100);setVal('cpu-temp-val',m.cpuTemp.toFixed(0)+'°C');
+  const tv=document.getElementById('cpu-temp-val');if(tv)tv.className='m-val '+(m.cpuTemp>82?'hot':m.cpuTemp>68?'warn':'ok');
+  setBar('cpu-load-bar',m.cpuLoad);setVal('cpu-load-val',m.cpuLoad.toFixed(0)+'%');
+  setBar('cpu-freq-bar',(m.cpuFreq/4.8)*100);setVal('cpu-freq-val',m.cpuFreq.toFixed(1)+'G');
+  setBar('cpu-pwr-bar',(m.cpuPwr/95)*100);setVal('cpu-pwr-val',m.cpuPwr.toFixed(0)+'W');
+  setBar('gpu-temp-bar',(m.gpuTemp/95)*100);setVal('gpu-temp-val',m.gpuTemp.toFixed(0)+'°C');
+  const gv=document.getElementById('gpu-temp-val');if(gv)gv.className='m-val '+(m.gpuTemp>82?'hot':m.gpuTemp>65?'warn':'ok');
+  setBar('gpu-load-bar',m.gpuLoad);setVal('gpu-load-val',m.gpuLoad.toFixed(0)+'%');
+  setBar('gpu-vram-bar',(m.gpuVram/8)*100);setVal('gpu-vram-val',m.gpuVram.toFixed(1)+'/8G');
+  setBar('gpu-pwr-bar',(m.gpuPwr/220)*100);setVal('gpu-pwr-val',m.gpuPwr.toFixed(0)+'W');
+  if(p){const pc=m.cpuTemp+p.pred.co+Math.random()*2,pg=m.gpuTemp+p.pred.go+Math.random()*2;
+    setBar('pred-cpu-bar',(pc/95)*100);setVal('pred-cpu-val',pc.toFixed(0)+'°C');
+    setBar('pred-gpu-bar',(pg/95)*100);setVal('pred-gpu-val',pg.toFixed(0)+'°C');
+    const rv=document.getElementById('risk-val');if(rv){rv.textContent=p.pred.risk;rv.className='m-val '+(p.pred.risk==='HIGH'?'hot':p.pred.risk==='MED'?'warn':'ok');}
+  }
+}
+
+function tickMetrics(){
+  if(transitioning)return;
+  const p=PROFILES[activeProfile];if(!p)return;
+  function drift(v,mn,mx){return Math.min(mx,Math.max(mn,v+(Math.random()-.5)*2))}
+  cur.cpuTemp=drift(cur.cpuTemp,p.cpu.tMin,p.cpu.tMax);cur.cpuLoad=drift(cur.cpuLoad,p.cpu.lMin,p.cpu.lMax);
+  cur.cpuFreq=drift(cur.cpuFreq,p.cpu.fMin,p.cpu.fMax);cur.cpuPwr=drift(cur.cpuPwr,p.cpu.pMin,p.cpu.pMax);
+  cur.gpuTemp=drift(cur.gpuTemp,p.gpu.tMin,p.gpu.tMax);cur.gpuLoad=drift(cur.gpuLoad,p.gpu.lMin,p.gpu.lMax);
+  cur.gpuVram=drift(cur.gpuVram,p.gpu.vMin,p.gpu.vMax);cur.gpuPwr=drift(cur.gpuPwr,p.gpu.pMin,p.gpu.pMax);
+  cpuHistory.push(cur.cpuTemp);cpuHistory.shift();gpuHistory.push(cur.gpuTemp);gpuHistory.shift();
+  renderMetrics();
+  drawSparkline('cpu-spark',cpuHistory,'#FF3B3F');
+  drawSparkline('gpu-spark',gpuHistory,'#FF7A00');
+}
+setInterval(tickMetrics,1500);
+applyProfileMetrics('gaming');
+
+/* Sparklines */
+function drawSparkline(id,data,color){
+  const c=document.getElementById(id);if(!c)return;
+  const cx=c.getContext('2d'),w=c.offsetWidth||400,h=46;
+  c.width=w;c.height=h;cx.clearRect(0,0,w,h);
+  const mn=Math.min(...data)-2,mx2=Math.max(...data)+2,rng=mx2-mn||1;
+  cx.beginPath();
+  data.forEach((v,i)=>{const x=(i/(data.length-1))*w,y=h-((v-mn)/rng)*(h-4)-2;i===0?cx.moveTo(x,y):cx.lineTo(x,y)});
+  const g=cx.createLinearGradient(0,0,0,h);g.addColorStop(0,color+'55');g.addColorStop(1,color+'00');
+  cx.strokeStyle=color;cx.lineWidth=1.5;cx.stroke();cx.lineTo(w,h);cx.lineTo(0,h);cx.closePath();cx.fillStyle=g;cx.fill();
+}
+
+/* ═══════════════════════════════════════════════════════
+   BACKEND API
+═══════════════════════════════════════════════════════ */
+const API='http://localhost:5000/api';
+let backendConnected=false,lastTunedTime='Never';
+
+async function checkBackend(){
+  try{const r=await fetch(API+'/status',{signal:AbortSignal.timeout(2000)});backendConnected=r.ok}
+  catch{backendConnected=false}
+  updateConnBadge();
+}
+function updateConnBadge(){
+  const b=document.getElementById('connection-badge');if(!b)return;
+  if(backendConnected){b.textContent='🟢 LIVE';b.style.color='var(--green)';b.style.borderColor='rgba(0,255,163,.3)'}
+  else{b.textContent='🟡 DEMO — Run server.py';b.style.color='var(--yellow)';b.style.borderColor='rgba(255,208,0,.3)'}
+}
+setInterval(checkBackend,5000);checkBackend();
+
+/* ═══════════════════════════════════════════════════════
+   AI TUNE CONSOLE
+═══════════════════════════════════════════════════════ */
+function setPrompt(el,text){
+  document.getElementById('prompt-input').value=text;
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));el.classList.add('active');
+  const t=text.toLowerCase();
+  let key='gaming';
+  if(t.includes('silent')||t.includes('meeting'))key='silent';
+  else if(t.includes('battery'))key='battery';
+  else if(t.includes('render')||t.includes('blender'))key='render';
+  activeProfile=key;applyProfileMetrics(key);
+  if(backendConnected)fetch(API+'/profile/'+key,{method:'POST'}).catch(()=>{});
+}
+
+async function simulateTune(){
+  const input=document.getElementById('prompt-input').value;
+  const respEl=document.getElementById('ai-response');
+  const textEl=document.getElementById('ai-response-text');
+  const btn=document.querySelector('.prompt-btn');
+  btn.textContent='Tuning...';btn.disabled=true;
+  const t=input.toLowerCase();
+  let key='gaming';
+  if(t.includes('silent')||t.includes('quiet')||t.includes('meeting'))key='silent';
+  else if(t.includes('battery')||t.includes('power sav'))key='battery';
+  else if(t.includes('render')||t.includes('blender'))key='render';
+  activeProfile=key;applyProfileMetrics(key);lastTunedTime=new Date().toLocaleTimeString();
+  if(backendConnected){
+    try{
+      textEl.innerHTML='<span style="color:var(--t2)">🤖 Sending to AI agent...</span>';respEl.classList.add('show');
+      const res=await fetch(API+'/tune',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({goal:input})});
+      const data=await res.json();
+      if(data.ok){textEl.innerHTML=`<span class="hl">✅ ${data.profile.toUpperCase()} applied</span><br><span style="color:var(--t3)">Reasoning:</span> ${data.reasoning}<br><span style="color:var(--t3)">Expected:</span> <span class="hl">${data.expected_outcome}</span>${data.fps_estimate?`<br><span style="color:var(--t3)">Est. FPS:</span> <span style="color:var(--green);font-weight:600">${data.fps_estimate}</span>`:''}${(data.warnings||[]).length?`<br><span style="color:var(--yellow)">⚠️ ${data.warnings.join(', ')}</span>`:''}`}
+      else textEl.innerHTML=`<span style="color:var(--amd-red2)">Error: ${data.error}</span>`;
+    }catch{textEl.innerHTML=`<span style="color:var(--amd-red2)">Connection error. Is server.py running?</span>`;}
+  }else{
+    const r=PROFILES[key]?.r||PROFILES.gaming.r;
+    textEl.innerHTML=`<span class="hl">✓ DEMO: ${r.profile.toUpperCase()}</span> <span style="color:var(--yellow)">(visual only — run server.py for real tuning)</span><br><span style="color:var(--t3)">Reasoning:</span> ${r.reason}<br><span style="color:var(--t3)">Expected:</span> <span class="hl">${r.expect}</span>`;
+    respEl.classList.add('show');
+  }
+  btn.textContent='Tune →';btn.disabled=false;
+}
+
+/* ═══════════════════════════════════════════════════════
+   LIVE LAPTOP STATUS
+═══════════════════════════════════════════════════════ */
+const lsCpuHist=Array(60).fill(0),lsLoadHist=Array(60).fill(0);
+function lsSet(id,v){const e=document.getElementById(id);if(e)e.textContent=v}
+function lsCol(id,c){const e=document.getElementById(id);if(e)e.style.color=c}
+
+function drawLsSpark(id,data,color){
+  const c=document.getElementById(id);if(!c)return;
+  const cx=c.getContext('2d'),w=c.offsetWidth||400,h=55;
+  c.width=w;c.height=h;cx.clearRect(0,0,w,h);
+  const valid=data.filter(v=>v>0);if(valid.length<2)return;
+  const mn=Math.min(...valid)-2,mx2=Math.max(...valid)+2,rng=mx2-mn||1;
+  cx.beginPath();let started=false;
+  data.forEach((v,i)=>{if(!v)return;const x=(i/(data.length-1))*w,y=h-((v-mn)/rng)*(h-6)-3;if(!started){cx.moveTo(x,y);started=true}else cx.lineTo(x,y)});
+  const g=cx.createLinearGradient(0,0,0,h);g.addColorStop(0,color+'66');g.addColorStop(1,color+'00');
+  cx.strokeStyle=color;cx.lineWidth=2;cx.stroke();
+  if(started){cx.lineTo(w,h);cx.lineTo(0,h);cx.closePath();cx.fillStyle=g;cx.fill();}
+}
+
+function drawBattGauge(pct,plugged){
+  const c=document.getElementById('battery-gauge');if(!c)return;
+  const cx=c.getContext('2d');cx.clearRect(0,0,120,120);
+  const col=pct>50?'#00FFA3':pct>20?'#FFD000':'#FF3B3F';
+  cx.beginPath();cx.arc(60,60,46,.75*Math.PI,.25*Math.PI,false);
+  cx.strokeStyle='rgba(255,255,255,0.07)';cx.lineWidth=8;cx.lineCap='round';cx.stroke();
+  const end=.75*Math.PI+(pct/100)*1.5*Math.PI;
+  cx.beginPath();cx.arc(60,60,46,.75*Math.PI,end,false);
+  cx.strokeStyle=col;cx.lineWidth=8;cx.lineCap='round';cx.stroke();
+  cx.shadowColor=col;cx.shadowBlur=14;
+  cx.beginPath();cx.arc(60,60,46,end-.01,end,false);cx.stroke();cx.shadowBlur=0;
+}
+
+async function updateLiveStatus(){
+  if(!backendConnected){
+    const dot=document.getElementById('live-dot');
+    if(dot){dot.style.background='var(--yellow)';dot.style.boxShadow='0 0 10px var(--yellow)'}
+    lsSet('live-status-text','OFFLINE — Run: python server.py');return;
+  }
+  try{
+    const res=await fetch(API+'/status');const data=await res.json();if(!data.ok)return;
+    const s=data.state,cpu=s.cpu,gpu=s.gpu,mem=s.memory,bat=s.battery,pwr=s.power;
+    const dot=document.getElementById('live-dot');
+    if(dot){dot.style.background='var(--green)';dot.style.boxShadow='0 0 10px var(--green)'}
+    lsSet('live-status-text','● LIVE — Real hardware data');
+    lsSet('live-last-update','Updated: '+new Date().toLocaleTimeString());
+    lsSet('ls-cpu-model',cpu.model?.substring(0,42)||'Unknown');
+    const tc=cpu.temp_c>80?'var(--amd-red2)':cpu.temp_c>65?'var(--yellow)':'var(--green)';
+    lsSet('ls-cpu-temp',cpu.temp_c.toFixed(0)+'°C');lsCol('ls-cpu-temp',tc);
+    lsSet('ls-cpu-load',cpu.usage_percent.toFixed(0)+'%');
+    lsSet('ls-cpu-freq',(cpu.freq_mhz/1000).toFixed(2)+' GHz');
+    lsSet('ls-cpu-pwr',pwr.cpu_package_w.toFixed(0)+'W');
+    const pcEl=document.getElementById('ls-per-core');
+    if(pcEl&&cpu.per_core_usage){pcEl.innerHTML=cpu.per_core_usage.map(c=>{const h2=Math.max(3,(c/100)*34);const col=c>80?'#FF3B3F':c>50?'#FFD000':'#00FFA3';return`<div style="flex:1;height:${h2}px;background:${col};border-radius:2px;min-width:3px;transition:height .8s ease;box-shadow:0 0 6px ${col}44" title="${c.toFixed(0)}%"></div>`}).join('')}
+    lsSet('ls-gpu-model',gpu.model?.substring(0,38)||'Unknown');
+    lsSet('ls-gpu-temp',gpu.temp_c.toFixed(0)+'°C');lsCol('ls-gpu-temp',gpu.temp_c>75?'var(--amd-red2)':gpu.temp_c>60?'var(--yellow)':'var(--orange)');
+    lsSet('ls-gpu-load',gpu.usage_percent.toFixed(0)+'%');
+    lsSet('ls-ram-used',(mem.used_mb/1024).toFixed(1)+' GB');lsSet('ls-ram-pct',mem.percent.toFixed(0)+'%');
+    const rb=document.getElementById('ls-ram-bar');
+    if(rb){rb.style.width=mem.percent+'%';rb.style.background=mem.percent>85?'linear-gradient(90deg,#880000,#FF3B3F)':'linear-gradient(90deg,#005588,#00BFFF)';}
+    drawBattGauge(bat.percent||0,bat.plugged_in);
+    lsSet('ls-bat-pct',(bat.percent||0).toFixed(0)+'%');lsCol('ls-bat-pct',bat.percent>50?'var(--green)':bat.percent>20?'var(--yellow)':'var(--amd-red2)');
+    lsSet('ls-power-status',bat.plugged_in?'⚡ Charging':'🔋 On battery');
+    lsSet('ls-total-pwr',pwr.total_system_w.toFixed(0)+'W');
+    if(bat.time_remaining_min&&!bat.plugged_in){const h2=Math.floor(bat.time_remaining_min/60),m2=bat.time_remaining_min%60;lsSet('ls-bat-time',h2>0?`${h2}h ${m2}m`:`${m2}m`)}else lsSet('ls-bat-time',bat.plugged_in?'Charging':'--');
+    lsSet('ls-cores',`${cpu.cores}C / ${cpu.threads}T`);lsSet('ls-max-freq',(cpu.freq_max_mhz/1000).toFixed(1)+' GHz');
+    lsSet('ls-total-ram',(mem.total_mb/1024).toFixed(0)+' GB');lsSet('ls-platform',s.platform||'Linux');
+    lsSet('ls-active-profile',activeProfile.toUpperCase());lsSet('ls-last-tuned',lastTunedTime);
+    lsCpuHist.push(cpu.temp_c);lsCpuHist.shift();lsLoadHist.push(cpu.usage_percent);lsLoadHist.shift();
+    drawLsSpark('ls-cpu-spark',lsCpuHist,'#FF3B3F');drawLsSpark('ls-load-spark',lsLoadHist,'#00BFFF');
+    cur.cpuTemp=cpu.temp_c;cur.cpuLoad=cpu.usage_percent;cur.cpuFreq=cpu.freq_mhz/1000;cur.cpuPwr=pwr.cpu_package_w;
+    cur.gpuTemp=gpu.temp_c;cur.gpuLoad=gpu.usage_percent;cur.gpuVram=gpu.vram_used_mb/1024;cur.gpuPwr=gpu.power_w;
+    if(!transitioning){renderMetrics();drawSparkline('cpu-spark',cpuHistory,'#FF3B3F');drawSparkline('gpu-spark',gpuHistory,'#FF7A00');}
+    if(data.current_profile)activeProfile=data.current_profile;
+    if(data.fps_estimate)updateFPS(data);
+    if(data.state)updateHeatmap(data.state);
+    if(data.running_games)updateGames(data.running_games);
+    if(data.alerts&&data.alerts.length)updateAlertsLog(data.alerts);
+  }catch(e){console.warn('Live status error:',e)}
+}
+setInterval(updateLiveStatus,2000);updateLiveStatus();
+
+/* ═══════════════════════════════════════════════════════
+   FPS ESTIMATOR
+═══════════════════════════════════════════════════════ */
+const FPS_COL={gaming:'#00FFA3',balanced:'#00BFFF',silent:'#BF5FFF',battery:'#FFD000',rendering:'#FF7A00'};
+const FPS_SIM={gaming:75,balanced:50,silent:28,battery:18,rendering:40};
+
+function updateFPS(data){
+  const fps=data.fps_estimate||FPS_SIM[activeProfile]||45;
+  const profile=data.current_profile||activeProfile;
+  const el=document.getElementById('fps-big');if(!el)return;
+  el.textContent=fps>0?fps:'--';
+  const fc=fps>80?'var(--green)':fps>50?'var(--yellow)':'var(--amd-red2)';
+  el.style.color=fc;el.style.filter=`drop-shadow(0 0 24px ${fc})`;
+  lsSet('fps-profile-label',`frames/sec · ${profile} profile`);
+  const cmp=document.getElementById('fps-comparison');if(!cmp)return;
+  const fa=data.fps_by_profile||FPS_SIM;const mx=Math.max(...Object.values(fa),1);
+  cmp.innerHTML=Object.entries(fa).map(([p,f])=>{
+    const isA=p===profile;
+    return`<div style="display:flex;align-items:center;gap:10px;padding:${isA?'6px 8px':'3px 0'};${isA?'background:rgba(237,28,36,0.07);border-radius:8px;margin:0 -8px':''};transition:all .5s">
+      <span style="font-size:.7rem;color:${isA?'var(--t1)':'var(--t2)'};min-width:72px;text-transform:capitalize;font-weight:${isA?600:400}">${isA?'▶ ':''} ${p}</span>
+      <div style="flex:1;height:5px;background:rgba(255,255,255,0.05);border-radius:3px;overflow:hidden;box-shadow:inset 0 1px 0 rgba(0,0,0,.2)"><div style="height:100%;width:${(f/mx)*100}%;background:${FPS_COL[p]||'#888'};border-radius:3px;transition:width 1s ease;box-shadow:0 0 6px ${FPS_COL[p]||'#888'}"></div></div>
+      <span style="font-family:'Orbitron',monospace;font-size:.7rem;color:${FPS_COL[p]||'#888'};min-width:32px;text-align:right;font-weight:${isA?700:400}">${f}</span>
+    </div>`}).join('');
+}
+async function pollFPS(){
+  if(!backendConnected){updateFPS({fps_estimate:FPS_SIM[activeProfile]||45,current_profile:activeProfile,fps_by_profile:FPS_SIM});return}
+  try{const r=await fetch(API+'/fps');const d=await r.json();if(d.ok)updateFPS(d)}catch{}
+}
+setInterval(pollFPS,1000);pollFPS();
+
+/* ═══════════════════════════════════════════════════════
+   THERMAL HEATMAP
+═══════════════════════════════════════════════════════ */
+function updateHeatmap(state){
+  const grid=document.getElementById('thermal-grid');if(!grid)return;
+  let cores=state?.cpu?.per_core_usage||[];
+  const temps=state?.cpu?.per_core_temps||[];
+  const base=state?.cpu?.temp_c||50;
+  if(!cores.length)cores=Array.from({length:8},(_,i)=>30+Math.random()*50+(i%2)*5);
+  grid.style.gridTemplateColumns=`repeat(${Math.min(cores.length,4)},1fr)`;
+  grid.innerHTML=cores.map((load,i)=>{
+    const temp=(temps[i]||(base+(load/100)*10-3+(i%2)*1.5)).toFixed(0);
+    const t=Math.min(1,load/100);
+    let r,g,b;
+    if(t<.5){const p=t*2;r=Math.round(p*255);g=Math.round(255-p*71);b=Math.round(163-p*163)}
+    else{const p=(t-.5)*2;r=Math.round(255-p*18);g=Math.round(184-p*184);b=0}
+    const col=`rgb(${r},${g},${b})`;
+    return`<div title="Core ${i}: ${load.toFixed(0)}% · ${temp}°C" style="background:${col}14;border:1px solid ${col}44;border-radius:10px;padding:.6rem .4rem;text-align:center;transition:all .6s ease;position:relative;overflow:hidden">
+      <div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,${col}55,transparent)"></div>
+      <div style="font-size:.52rem;color:${col};font-weight:700;opacity:.65;margin-bottom:3px">C${i}</div>
+      <div style="font-family:'Orbitron',monospace;font-size:.95rem;font-weight:900;color:${col};filter:drop-shadow(0 0 6px ${col});line-height:1">${temp}°</div>
+      <div style="font-size:.55rem;color:rgba(255,255,255,0.3);margin:3px 0">${load.toFixed(0)}%</div>
+      <div style="height:3px;background:rgba(255,255,255,0.05);border-radius:2px;overflow:hidden;box-shadow:inset 0 1px 0 rgba(0,0,0,.2)"><div style="height:100%;width:${Math.min(100,load)}%;background:${col};border-radius:2px;transition:width .6s ease;box-shadow:0 0 6px ${col}"></div></div>
+    </div>`}).join('');
+}
+async function pollHeatmap(){
+  if(!backendConnected){updateHeatmap({cpu:{per_core_usage:Array.from({length:8},(_,i)=>30+Math.random()*50+(i%2)*5),temp_c:50+Math.random()*15}});return}
+  try{const r=await fetch(API+'/heatmap');const d=await r.json();if(d.ok)updateHeatmap({cpu:{per_core_usage:d.per_core_usage,per_core_temps:d.core_temps,temp_c:d.base_temp}})}catch{}
+}
+setInterval(pollHeatmap,1000);pollHeatmap();
+
+/* ═══════════════════════════════════════════════════════
+   PERFORMANCE HISTORY
+═══════════════════════════════════════════════════════ */
+let histTab='temp',histData=[];
+const HIST={temp:{key:'cpu_temp',color:'#FF3B3F',label:'CPU Temp (°C)',unit:'°C'},load:{key:'cpu_load',color:'#00BFFF',label:'CPU Load (%)',unit:'%'},power:{key:'cpu_pwr',color:'#FF7A00',label:'Power (W)',unit:'W'},fps:{key:'fps',color:'#00FFA3',label:'FPS',unit:' fps'}};
+function switchHistTab(el,tab){histTab=tab;document.querySelectorAll('.hist-tab').forEach(b=>b.classList.remove('active'));el.classList.add('active');drawHistChart()}
+function drawHistChart(){
+  const c=document.getElementById('history-chart');if(!c||!histData.length)return;
+  const cx=c.getContext('2d'),w=c.offsetWidth||800;c.width=w;c.height=180;cx.clearRect(0,0,w,180);
+  const cfg=HIST[histTab],vals=histData.map(d=>d[cfg.key]||0);if(!vals.length)return;
+  const mn=Math.min(...vals)*.9,mx2=Math.max(...vals)*1.1||1,rng=mx2-mn||1;
+  for(let i=0;i<=4;i++){const y=20+((4-i)/4)*140,v=mn+(i/4)*rng;cx.beginPath();cx.moveTo(40,y);cx.lineTo(w,y);cx.strokeStyle='rgba(255,255,255,0.04)';cx.lineWidth=1;cx.stroke();cx.fillStyle='rgba(255,255,255,0.18)';cx.font='10px Inter';cx.fillText(v.toFixed(0)+cfg.unit,2,y+4)}
+  cx.beginPath();vals.forEach((v,i)=>{const x=40+(i/(vals.length-1))*(w-50),y=20+(1-(v-mn)/rng)*140;i===0?cx.moveTo(x,y):cx.lineTo(x,y)});
+  const g=cx.createLinearGradient(0,0,0,180);g.addColorStop(0,cfg.color+'44');g.addColorStop(1,cfg.color+'00');
+  cx.strokeStyle=cfg.color;cx.lineWidth=2;cx.shadowColor=cfg.color;cx.shadowBlur=8;cx.stroke();cx.shadowBlur=0;
+  cx.lineTo(w-10,160);cx.lineTo(40,160);cx.closePath();cx.fillStyle=g;cx.fill();
+  lsSet('hist-range-label',`${histData.length} readings · ${cfg.label}`);
+}
+async function fetchHistory(){
+  if(!backendConnected)return;
+  try{const r=await fetch(API+'/history');const d=await r.json();if(d.ok&&d.history.length){histData=d.history;drawHistChart()}}catch{}
+}
+setInterval(fetchHistory,8000);setTimeout(fetchHistory,2000);
+
+/* ═══════════════════════════════════════════════════════
+   GAMES
+═══════════════════════════════════════════════════════ */
+function updateGames(games){
+  const el=document.getElementById('games-list');if(!el)return;
+  if(!games||!games.length){el.innerHTML='<div style="font-size:.82rem;color:var(--t3);text-align:center;padding:1.5rem 0">No games detected</div>';return}
+  el.innerHTML=games.map(g=>`<div style="display:flex;align-items:center;gap:10px;padding:.7rem;background:rgba(0,255,163,0.04);border:1px solid rgba(0,255,163,0.12);border-radius:10px;margin-bottom:5px;position:relative;overflow:hidden"><div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,255,163,0.2),transparent)"></div><span style="font-size:1.1rem">🎮</span><div style="flex:1"><div style="font-size:.82rem;font-weight:600;color:var(--t1)">${g.name}</div><div style="font-size:.65rem;color:var(--t3)">PID: ${g.pid} · CPU: ${(g.cpu_percent||0).toFixed(1)}%</div></div><span style="font-size:.6rem;font-weight:700;letter-spacing:.1em;color:var(--green);background:rgba(0,255,163,0.08);padding:3px 8px;border-radius:100px;border:1px solid rgba(0,255,163,0.15)">AUTO-TUNED</span></div>`).join('');
+}
+async function pollGames(){if(!backendConnected)return;try{const r=await fetch(API+'/status');const d=await r.json();if(d.ok){updateGames(d.running_games);if(d.alerts&&d.alerts.length)updateAlertsLog(d.alerts)}}catch{}}
+setInterval(pollGames,5000);
+
+/* ═══════════════════════════════════════════════════════
+   SCHEDULE
+═══════════════════════════════════════════════════════ */
+const PC={gaming:'#FF3B3F',balanced:'#00BFFF',silent:'#BF5FFF',battery:'#00FFA3',rendering:'#FF7A00'};
+async function loadSchedule(){
+  if(!backendConnected)return;
+  try{const r=await fetch(API+'/schedule');const d=await r.json();if(!d.ok)return;
+    const el=document.getElementById('schedule-list');if(!el)return;
+    if(!d.schedule.length){el.innerHTML='<div style="font-size:.8rem;color:var(--t3)">No schedules set</div>';return}
+    el.innerHTML=d.schedule.map(s=>{const col=PC[s.profile]||'#888',time=`${String(s.hour).padStart(2,'0')}:${String(s.minute).padStart(2,'0')}`;
+      return`<div class="sched-row" style="opacity:${s.enabled?1:.4}"><span style="font-family:'Orbitron',monospace;font-size:.8rem;font-weight:700;color:${col};min-width:40px">${time}</span><span style="font-size:.72rem;color:var(--t2);flex:1">${s.label}</span><span style="font-size:.6rem;color:${col};font-weight:700;letter-spacing:.08em;text-transform:uppercase">${s.profile}</span><button onclick="toggleSchedule(${s.id})" style="background:none;border:none;cursor:pointer;font-size:.82rem;padding:2px 4px">${s.enabled?'✅':'⬜'}</button><button onclick="deleteSchedule(${s.id})" style="background:none;border:none;cursor:pointer;font-size:.82rem;color:var(--amd-red2);padding:2px 4px">🗑️</button></div>`}).join('');
+  }catch{}
+}
+async function addSchedule(){
+  if(!backendConnected){alert('Start server.py first');return}
+  const [h,m]=document.getElementById('sched-time').value.split(':').map(Number);
+  await fetch(API+'/schedule',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hour:h,minute:m,profile:document.getElementById('sched-profile').value,label:document.getElementById('sched-label').value||'Custom'})});
+  loadSchedule();
+}
+async function toggleSchedule(id){await fetch(API+`/schedule/${id}/toggle`,{method:'POST'});loadSchedule()}
+async function deleteSchedule(id){await fetch(API+`/schedule/${id}`,{method:'DELETE'});loadSchedule()}
+
+/* ═══════════════════════════════════════════════════════
+   ALERTS
+═══════════════════════════════════════════════════════ */
+let notifPerm='default';
+async function requestNotificationPermission(){
+  if('Notification' in window){notifPerm=await Notification.requestPermission();const b=document.getElementById('notif-btn');if(b)b.textContent=notifPerm==='granted'?'✅ On':'❌ Denied'}
+}
+function updateAlertsLog(alerts){
+  if(!alerts||!alerts.length)return;
+  const log=document.getElementById('alerts-log');if(!log)return;
+  const LC={CRITICAL:'#FF3B3F',WARNING:'#FFD000',INFO:'#00BFFF'};
+  const LI={CRITICAL:'🔴',WARNING:'🟡',INFO:'🔵'};
+  alerts.forEach(a=>{
+    const col=LC[a.level]||'#888',icon=LI[a.level]||'•';
+    const div=document.createElement('div');
+    div.className='alert-row';div.style.background=col+'0D';div.style.border=`1px solid ${col}33`;div.style.borderRadius='8px';
+    div.innerHTML=`<div style="position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,${col}44,transparent)"></div><span style="font-size:.8rem;flex-shrink:0">${icon}</span><div style="flex:1"><div style="font-size:.68rem;color:${col};font-weight:700;text-transform:uppercase;letter-spacing:.1em">${a.level}</div><div style="font-size:.72rem;color:var(--t2);line-height:1.4;margin-top:2px">${a.message}</div><div style="font-size:.6rem;color:var(--t3);margin-top:2px">${a.time||''}</div></div>`;
+    div.style.position='relative';div.style.overflow='hidden';
+    const ph=log.querySelector('[style*="No alerts"]');if(ph)ph.remove();
+    log.insertBefore(div,log.firstChild);
+    if(log.children.length>12)log.removeChild(log.lastChild);
+    if(notifPerm==='granted'&&(a.level==='CRITICAL'||a.level==='WARNING'))new Notification(`🔴 RyzenSense — ${a.level}`,{body:a.message});
+  });
+}
+async function saveThresholds(){
+  if(!backendConnected)return;
+  await fetch(API+'/alerts/thresholds',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cpu_temp:parseInt(document.getElementById('thresh-cpu-temp').value),cpu_load:parseInt(document.getElementById('thresh-cpu-load').value),battery_low:parseInt(document.getElementById('thresh-battery').value)})});
+  const btn=event.target;btn.textContent='✓ Saved!';setTimeout(()=>btn.textContent='Save Thresholds',2000);
+}
+async function loadAlertHistory(){if(!backendConnected)return;try{const r=await fetch(API+'/alerts');const d=await r.json();if(d.ok&&d.alerts.length)updateAlertsLog(d.alerts.slice(0,5).map(a=>({level:a.level,message:a.message,time:a.timestamp?.substring(11,19)||''})))}catch{}}
+
+/* ═══════════════════════════════════════════════════════
+   AI CHAT
+═══════════════════════════════════════════════════════ */
+async function sendChat(msg){
+  const input=document.getElementById('chat-input'),btn=document.getElementById('chat-send-btn');
+  const text=msg||input?.value?.trim();if(!text)return;if(input)input.value='';
+  appendChatMsg('user',text);
+  if(!backendConnected){appendChatMsg('ai','⚠️ Server offline. Start server.py for AI chat.');return}
+  btn.textContent='...';btn.disabled=true;
+  const tid='t'+Date.now(),typing=document.createElement('div');
+  typing.id=tid;typing.className='chat-msg-ai';
+  typing.innerHTML='<div class="chat-from" style="color:var(--amd-red2)">🤖 RYZEN AI</div><div class="chat-text" style="display:flex;gap:5px;align-items:center"><span style="animation:live-blink .5s 0s infinite;width:6px;height:6px;background:var(--amd-red2);border-radius:50%;display:inline-block"></span><span style="animation:live-blink .5s .2s infinite;width:6px;height:6px;background:var(--amd-red2);border-radius:50%;display:inline-block"></span><span style="animation:live-blink .5s .4s infinite;width:6px;height:6px;background:var(--amd-red2);border-radius:50%;display:inline-block"></span></div>';
+  const msgs=document.getElementById('chat-messages');msgs?.appendChild(typing);msgs?.scrollTo(0,msgs.scrollHeight);
+  try{const r=await fetch(API+'/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text})});const d=await r.json();document.getElementById(tid)?.remove();appendChatMsg('ai',d.ok?d.reply:`Error: ${d.error}`)}
+  catch{document.getElementById(tid)?.remove();appendChatMsg('ai','Connection error.')}
+  btn.textContent='Send';btn.disabled=false;
+}
+function appendChatMsg(role,text){
+  const msgs=document.getElementById('chat-messages');if(!msgs)return;
+  const isAI=role==='ai',div=document.createElement('div');
+  div.className=isAI?'chat-msg-ai':'chat-msg-user';
+  div.innerHTML=`<div class="chat-from" style="color:${isAI?'var(--amd-red2)':'var(--blue)'}">${isAI?'🤖 RYZEN AI':'👤 YOU'}</div><div class="chat-text">${text}</div>`;
+  msgs.appendChild(div);msgs.scrollTo(0,msgs.scrollHeight);
+}
+
+/* ═══════════════════════════════════════════════════════
+   BENCHMARK + LEADERBOARD
+═══════════════════════════════════════════════════════ */
+async function runBenchmark(){
+  const btn=document.getElementById('bench-btn'),user=document.getElementById('bench-username')?.value||'Anonymous';
+  if(!backendConnected){alert('Start server.py first');return}
+  btn.textContent='⚡ Running...';btn.disabled=true;
+  try{
+    const r=await fetch(API+'/benchmark',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:user})});const d=await r.json();
+    if(d.ok){const res=d.results,rb=document.getElementById('bench-results');
+      lsSet('bench-score',res.multi_score.toLocaleString());
+      lsSet('bench-details',`Single: <strong style="color:var(--blue)">${res.single_score.toLocaleString()}</strong> · Multi: <strong style="color:var(--green)">${res.multi_score.toLocaleString()}</strong> · Speedup: <strong style="color:var(--orange)">${res.speedup}x</strong>`);
+      if(rb)rb.style.display='block';loadLeaderboard();}
+  }catch(e){alert('Benchmark failed: '+e.message)}
+  btn.textContent='⚡ Run Benchmark';btn.disabled=false;
+}
+async function loadLeaderboard(){
+  if(!backendConnected)return;
+  try{const r=await fetch(API+'/leaderboard');const d=await r.json();if(!d.ok)return;
+    const el=document.getElementById('leaderboard-table');if(!el)return;
+    if(!d.leaderboard.length){el.innerHTML='<div style="font-size:.8rem;color:var(--t3);text-align:center;padding:1rem">No scores yet</div>';return}
+    const medals=['🥇','🥈','🥉'];
+    el.innerHTML=`<div class="lb-row" style="border-bottom:1px solid rgba(255,255,255,0.05);margin-bottom:6px;padding-bottom:6px"><span style="font-size:.58rem;color:var(--t3)">#</span><span style="font-size:.58rem;color:var(--t3)">NAME</span><span style="font-size:.58rem;color:var(--t3);text-align:right">SINGLE</span><span style="font-size:.58rem;color:var(--t3);text-align:right">MULTI</span><span style="font-size:.58rem;color:var(--t3);text-align:right">PROFILE</span></div>`+
+    d.leaderboard.map((row,i)=>`<div class="lb-row" style="background:${i<3?'rgba(237,28,36,0.05)':'transparent'};border-radius:6px"><span class="lb-rank">${medals[i]||i+1}</span><span class="lb-name" style="color:${i<3?'var(--t1)':'var(--t2)'};font-weight:${i<3?600:400}">${row.username}</span><span class="lb-score" style="color:var(--blue)">${(row.single_score||0).toLocaleString()}</span><span class="lb-score" style="color:var(--green);font-weight:700">${(row.multi_score||0).toLocaleString()}</span><span class="lb-prof" style="color:${PC[row.profile]||'#888'}">${row.profile||'--'}</span></div>`).join('');
+  }catch{}
+}
+
+/* ═══════════════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════════════ */
+setTimeout(()=>{loadSchedule();loadLeaderboard();loadAlertHistory()},2500);
+setInterval(loadSchedule,30000);setInterval(loadLeaderboard,60000);
+</script>
+</body>
+</html>

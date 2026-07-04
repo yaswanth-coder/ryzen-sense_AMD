@@ -1,0 +1,20 @@
+{
+  "profile_name": "gaming",
+  "reasoning": "Maximum CPU and GPU performance for gaming workloads.",
+  "cpu": {
+    "stapm_limit_w": 65,
+    "fast_limit_w": 78,
+    "slow_limit_w": 65,
+    "tctl_temp_c": 88
+  },
+  "gpu": {
+    "power_limit_w": 180,
+    "clock_limit_mhz": null,
+    "fan_mode": "auto"
+  },
+  "fan": {
+    "mode": "auto",
+    "speed_percent": null
+  },
+  "expected_outcome": "Maximum FPS, higher temps and fan noise expected."
+}

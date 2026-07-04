@@ -1,0 +1,20 @@
+{
+  "profile_name": "balanced",
+  "reasoning": "Balance between performance and thermals.",
+  "cpu": {
+    "stapm_limit_w": 45,
+    "fast_limit_w": 54,
+    "slow_limit_w": 45,
+    "tctl_temp_c": 85
+  },
+  "gpu": {
+    "power_limit_w": 120,
+    "clock_limit_mhz": null,
+    "fan_mode": "balanced"
+  },
+  "fan": {
+    "mode": "balanced",
+    "speed_percent": null
+  },
+  "expected_outcome": "Good performance with moderate temps."
+}

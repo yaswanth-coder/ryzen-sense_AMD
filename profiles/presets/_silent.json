@@ -1,0 +1,20 @@
+{
+  "profile_name": "silent",
+  "reasoning": "Minimise noise and heat for meetings or quiet environments.",
+  "cpu": {
+    "stapm_limit_w": 15,
+    "fast_limit_w": 18,
+    "slow_limit_w": 15,
+    "tctl_temp_c": 75
+  },
+  "gpu": {
+    "power_limit_w": 50,
+    "clock_limit_mhz": 1200,
+    "fan_mode": "silent"
+  },
+  "fan": {
+    "mode": "silent",
+    "speed_percent": null
+  },
+  "expected_outcome": "Very quiet operation, reduced performance."
+}
