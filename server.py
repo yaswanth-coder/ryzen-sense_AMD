@@ -750,6 +750,6 @@ if __name__ == '__main__':
     print(f"  Cores  : {psutil.cpu_count(logical=False)}C / {psutil.cpu_count(logical=True)}T")
     print(f"  RAM    : {psutil.virtual_memory().total//(1024**3)} GB")
     print(f"  Features: FPS · Heatmap · Alerts · Games · Schedule · Chat · Leaderboard")
-    print(f"\n  ➜  http://localhost:{port}")
+    print(f"\n  ➜  http://localhost:5000")
     print("  Ctrl+C to stop\n")
-    app.run(host='0.0.0.0', port=port, debug=False, threaded=True)
+    app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)

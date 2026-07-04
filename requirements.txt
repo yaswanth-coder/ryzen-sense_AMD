@@ -1,6 +1,7 @@
 Flask
 gunicorn
 Flask-Cors
+gunicorn
 groq
 psutil
 absl-py==2.3.1
