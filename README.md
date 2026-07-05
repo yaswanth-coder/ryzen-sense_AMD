@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="assets/screenshots/dashboard.png" alt="RyzenSense v2 Dashboard" width="85%"/>
+<img src="assets/screenshots/dashboard.png" alt="RyzenSense  Dashboard" width="85%"/>
 
-# RyzenSense v2 — AMD AI Hardware Performance Tuner
+# RyzenSense  — AMD AI Hardware Performance Tuner
 
 **6 specialized AI agents working together to tune your AMD CPU and GPU in real-time**
 
@@ -220,8 +220,6 @@ ryzenadj             Windows powercfg
 
 <br/><br/>
 
-<img src="assets/screenshots/leaderboard.png" width="850"/>
-<em>Benchmark Leaderboard — run and compare CPU scores</em>
 
 </div>
 
@@ -497,7 +495,7 @@ The Flask server exposes these endpoints:
 
 ## License
 
-MIT © 2025
+MIT © 2025  [Yasanth kumar](https://github.com/yaswanth-coder)
 
 ---
 
