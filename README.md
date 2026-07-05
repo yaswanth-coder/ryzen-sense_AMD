@@ -56,7 +56,7 @@ RyzenSense bridges that gap. The AI layer reasons about your specific hardware s
 ## Demo
 
 <div align="center">
-<img src="assets/demo.gif" alt="RyzenSense Demo" width="300"/>
+<img src="assets/demo.mp4" alt="RyzenSense Demo" width="300"/>
 
 *Natural language input → AI reasoning → power plan applied → live metrics update*
 </div>
@@ -495,7 +495,7 @@ The Flask server exposes these endpoints:
 
 ## License
 
-MIT © 2025  [Yasanth kumar](https://github.com/yaswanth-coder)
+MIT © 2025  [Yaswanth kumar](https://github.com/yaswanth-coder)
 
 ---
 
