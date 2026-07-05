@@ -56,7 +56,7 @@ RyzenSense bridges that gap. The AI layer reasons about your specific hardware s
 ## Demo
 
 <div align="center">
-<img src="assets/demo.gif" alt="RyzenSense Demo" width="300"/>
+<img src="assets/demo.gif" alt="RyzenSense Demo" width="500"/>
 
 *Natural language input → AI reasoning → power plan applied → live metrics update*
 </div>
